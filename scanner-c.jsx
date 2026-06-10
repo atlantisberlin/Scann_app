@@ -274,11 +274,145 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     );
   };
 
-  // ── Geschwister-Accordion ─────────────────────────────────────
-  // Gruppiert nach Farbe, sortiert innerhalb der Gruppe nach Größe.
-  // Unterstützt beide Namensformate:
-  //   "Basis - Farbe - Gr. XY"  (Bindestrich-Format)
-  //   "Basis - Farbe: Wert - Größe: Wert"  (Doppelpunkt-Format)
+  // ── StandortChips: Bestand-Chips für alle Standorte ───────────
+  // hasLocs=false → Variante B: aktueller Standort zeigt stock, andere ausgegraut mit "–"
+  const StandortChips = ({ locs, stockFallback = 0 }) => {
+    const hasLocs = !!locs;
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 4 }}>
+        {ALL_LOC_KEYS.map((locKey) => {
+          const sd   = STANDORTE.find((s) => s.key === locKey) || { key: locKey, label: locKey };
+          const home = locKey === standort.key;
+          const n    = hasLocs ? (locs[locKey] ?? 0) : (home ? stockFallback : null);
+          const noData = !hasLocs && !home;
+          const col  = noData ? 'var(--color-text-secondary)' : n === 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok;
+          return (
+            <div key={locKey} style={{
+              background: home ? (T.dark ? `${standortAccent}28` : `${standortAccent}14`) : (T.dark ? 'rgba(255,255,255,0.06)' : 'var(--color-background-secondary)'),
+              borderRadius: 6,
+              border: home ? `1.5px solid ${standortAccent}` : `0.5px solid ${T.border}`,
+              padding: '4px 2px', textAlign: 'center',
+              opacity: noData ? 0.45 : 1,
+            }}>
+              <div style={{ fontSize: 9, color: home ? standortAccent : T.mute, fontWeight: home ? 500 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sd.shortLabel}</div>
+              <div style={{ fontSize: 15, fontWeight: 500, color: noData ? T.mute : col, lineHeight: 1.2, marginTop: 1 }}>{noData ? '–' : n}</div>
+              <div style={{ fontSize: 9, color: home ? standortAccent : T.mute, marginTop: 0 }}>{noData ? 'n/a' : (hasLocs ? `/ ${ALL_LOC_KEYS.reduce((s, k) => s + (locs[k] ?? 0), 0)}` : 'Stk')}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── CopyBtn: kleiner Kopier-Button ────────────────────────────
+  const CopyBtn = ({ text }) => {
+    const [copied, setCopied] = React.useState(false);
+    const copy = () => {
+      try { navigator.clipboard.writeText(text); } catch (e) {}
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    };
+    return (
+      <button onClick={copy} title="Kopieren" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '1px 3px', color: copied ? T.stock.ok : T.mute, lineHeight: 1, flexShrink: 0 }}>
+        {copied
+          ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          : <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="2"/></svg>
+        }
+      </button>
+    );
+  };
+
+  // ── SiblingsNew: neues Layout ohne Accordion ──────────────────
+  // Gescannter Artikel: blauer Kasten oben (nur Chips, kein Art.-Nr./Shop-Link)
+  // Alle anderen Slaves: aufgeklappt mit Bild, Art.-Nr., Shop-Link, Chips
+  function SiblingsNew({ siblings, currentEan, T, F }) {
+    if (!siblings || siblings.length === 0) return null;
+
+    // Namen-Parser (Farbe + Größe) — gleiche Logik wie vorher
+    const parseAttrs = (name) => {
+      const colorColon = (name.match(/Farbe\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
+      const sizeColon  = (name.match(/Gr(?:ö|oe|o)(?:ß|ss|s)e\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
+      if (colorColon || sizeColon) return { color: (colorColon || '').trim() || null, size: (sizeColon || '').trim() || null };
+      const parts = name.split(/\s+-\s+/);
+      if (parts.length >= 2) {
+        const last = parts[parts.length - 1].trim();
+        const prev = parts[parts.length - 2].trim();
+        const sizeMatch = last.match(/^Gr\.?\s*(.+)/i);
+        if (sizeMatch) return { color: prev, size: sizeMatch[1].trim() };
+        if (/^(XS|S|M|L|XL|XXL|\d[\d/,.\-–]+)$/i.test(last)) return { color: prev, size: last };
+        return { color: last, size: null };
+      }
+      return { color: null, size: null };
+    };
+
+    const currentSlave = siblings.find((sp) => sp.ean === currentEan) || null;
+    const otherSlaves  = siblings.filter((sp) => sp.ean !== currentEan);
+
+    const SlaveCard = ({ sp }) => {
+      const { color, size } = parseAttrs(sp.name);
+      const label    = [color, size].filter(Boolean).join(' · ') || sp.name;
+      const onSale   = sp.sale != null && sp.sale > sp.price;
+      const hasLocs  = !!sp.locs;
+      const stock    = hasLocs ? (sp.locs[standort.key] ?? 0) : (sp.stock ?? 0);
+      const shopUrl  = sp.shopUrl || null;
+      return (
+        <div style={{ padding: `${F(10)}px ${F(12)}px`, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <AUI.ProductPhoto product={sp} dark={T.dark} radius={8} style={{ width: F(48), height: F(48), flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ fontSize: F(13), fontWeight: 500, color: T.ink }}>{label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                {sp.aktionsangebot && <span style={{ fontSize: 9, background: '#DAA520', color: '#3d2b00', padding: '1px 5px', borderRadius: 4, fontWeight: 500 }}>Aktion</span>}
+                {sp.price > 0 && <span style={{ fontSize: F(12), fontWeight: 500, color: onSale ? T.red : standortAccent }}>{EUR(sp.price)}</span>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 7 }}>
+              <span style={{ fontSize: F(10), color: T.mute, fontFamily: 'ui-monospace,Menlo,monospace' }}>{sp.art}</span>
+              <CopyBtn text={sp.art} />
+              {shopUrl && (
+                <a href={shopUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ marginLeft: 'auto', fontSize: F(11), color: standortAccent, fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Shop
+                </a>
+              )}
+            </div>
+            <StandortChips locs={sp.locs} stockFallback={stock} />
+          </div>
+        </div>
+      );
+    };
+
+    // Gescannter Artikel — Label + Chips, ohne Art.-Nr./Shop (steht oben)
+    const currentAttrs = currentSlave ? parseAttrs(currentSlave.name) : null;
+    const currentLabel = currentAttrs ? [currentAttrs.color, currentAttrs.size].filter(Boolean).join(' · ') : '';
+
+    return (
+      <div style={{ marginTop: T.gap }}>
+        {currentSlave && (
+          <div style={{ background: standortAccent, borderRadius: T.radius, padding: `${F(10)}px ${F(12)}px`, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 9, fontWeight: 500, color: T.dark ? standortAccent : '#fff', background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gescannt</span>
+              <span style={{ fontSize: F(13), fontWeight: 500, color: '#fff' }}>{currentLabel}</span>
+            </div>
+            <StandortChips locs={currentSlave.locs} stockFallback={currentSlave.stock ?? 0} />
+          </div>
+        )}
+
+        {otherSlaves.length > 0 && (
+          <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.border}`, boxShadow: T.tileShadow, overflow: 'hidden' }}>
+            <div style={{ fontSize: F(10), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 5, padding: `${F(8)}px ${F(12)}px`, borderBottom: `1px solid ${T.border}`, background: T.dark ? 'rgba(255,255,255,0.03)' : '#f7f9fc' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/><path d="M3 7l9 4 9-4M12 11v10" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/></svg>
+              Weitere Ausführungen
+            </div>
+            {otherSlaves.map((sp) => <SlaveCard key={sp.ean || sp.art} sp={sp} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Geschwister-Accordion (ALT — wird nicht mehr verwendet) ───
   function SiblingsAccordion({ siblings, currentEan, T, F }) {
     if (!siblings || siblings.length === 0) return null;
     const stockColor = (n) => n <= 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok;
@@ -595,31 +729,15 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           {detail.locs && siblings.length === 0 && (
             <div style={{ background: T.card, borderRadius: T.radius, padding: T.pad, marginTop: T.gap, border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>
               <TileLabel icon={Icon.box}>Bestand nach Standort</TileLabel>
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {ALL_LOC_KEYS.map((locKey) => {
-                  const sd   = STANDORTE.find((s) => s.key === locKey) || { key: locKey, label: locKey };
-                  const n    = detail.locs[locKey] ?? 0;
-                  const home = locKey === standort.key;
-                  return (
-                    <div key={locKey} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 96, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: F(13), fontWeight: home ? 700 : 500, color: home ? standortAccent : T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sd.label}</span>
-                        {home && <span style={{ fontSize: F(9), fontWeight: 700, color: standortAccent, background: `${standortAccent}18`, padding: '1px 5px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>hier</span>}
-                      </div>
-                      <div style={{ flex: 1, height: 8, borderRadius: 8, background: T.dark ? 'rgba(255,255,255,0.08)' : '#e7ecf3', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.round((n / locMax) * 100)}%`, height: '100%', borderRadius: 8, background: n === 0 ? 'transparent' : home ? standortAccent : (T.dark ? 'rgba(231,239,247,0.4)' : '#9fb0c6') }} />
-                      </div>
-                      <span style={{ width: 28, textAlign: 'right', fontSize: F(13), fontWeight: 700, color: n ? T.ink : T.mute }}>{n}</span>
-                    </div>
-                  );
-                })}
+              <div style={{ marginTop: 10 }}>
+                <StandortChips locs={detail.locs} stockFallback={getStock(detail)} />
               </div>
             </div>
           )}
 
-          {/* Geschwister-Accordion */}
+          {/* Geschwister — neues Layout */}
           {siblings.length > 0 && (
-            <SiblingsAccordion siblings={siblings} currentEan={detail._scannedEan} T={T} F={F} />
+            <SiblingsNew siblings={siblings} currentEan={detail._scannedEan} T={T} F={F} />
           )}
 
           {/* Spec-Tabelle */}
@@ -661,9 +779,15 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           </div>
 
           {/* Art.-Nr. + EAN */}
-          <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', justifyContent: 'space-between', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: F(11), color: T.mute }}>
-            <span>Art. {detail.art}</span>
-            <span>EAN {detail.ean}</span>
+          <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
+              <span>Art. {detail.art}</span>
+              <CopyBtn text={detail.art || ''} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
+              <span>EAN {detail.ean}</span>
+              <CopyBtn text={detail.ean || ''} />
+            </div>
           </div>
           {!shopBtnUrl && (
             <div style={{ textAlign: 'center', fontSize: F(11), color: T.mute, marginBottom: T.gap }}>Kein Onlineshop-Eintrag gefunden</div>
