@@ -276,8 +276,9 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
 
   // ── StandortChips: Bestand-Chips für alle Standorte ───────────
   // hasLocs=false → Variante B: aktueller Standort zeigt stock, andere ausgegraut mit "–"
-  const StandortChips = ({ locs, stockFallback = 0 }) => {
+  const StandortChips = ({ locs, stockFallback = 0, darkBg = false }) => {
     const hasLocs = !!locs;
+    const labelCol = darkBg ? 'rgba(255,255,255,0.75)' : (home2) => home2 ? standortAccent : T.mute;
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 4 }}>
         {ALL_LOC_KEYS.map((locKey) => {
@@ -285,18 +286,26 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           const home = locKey === standort.key;
           const n    = hasLocs ? (locs[locKey] ?? 0) : (home ? stockFallback : null);
           const noData = !hasLocs && !home;
-          const col  = noData ? 'var(--color-text-secondary)' : n === 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok;
+          const numCol = darkBg
+            ? (noData ? 'rgba(255,255,255,0.35)' : n === 0 ? '#ff8a8a' : n <= 2 ? '#ffd080' : '#6ee7a0')
+            : (noData ? T.mute : n === 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok);
+          const lc = darkBg ? 'rgba(255,255,255,0.75)' : (home ? standortAccent : T.mute);
+          const subCol = darkBg ? 'rgba(255,255,255,0.5)' : (home ? standortAccent : T.mute);
           return (
             <div key={locKey} style={{
-              background: home ? (T.dark ? `${standortAccent}28` : `${standortAccent}14`) : (T.dark ? 'rgba(255,255,255,0.06)' : 'var(--color-background-secondary)'),
+              background: darkBg
+                ? (home ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)')
+                : (home ? (T.dark ? `${standortAccent}28` : `${standortAccent}14`) : (T.dark ? 'rgba(255,255,255,0.06)' : 'var(--color-background-secondary)')),
               borderRadius: 6,
-              border: home ? `1.5px solid ${standortAccent}` : `0.5px solid ${T.border}`,
+              border: darkBg
+                ? (home ? '1.5px solid rgba(255,255,255,0.7)' : '0.5px solid rgba(255,255,255,0.2)')
+                : (home ? `1.5px solid ${standortAccent}` : `0.5px solid ${T.border}`),
               padding: '4px 2px', textAlign: 'center',
               opacity: noData ? 0.45 : 1,
             }}>
-              <div style={{ fontSize: 9, color: home ? standortAccent : T.mute, fontWeight: home ? 500 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sd.shortLabel}</div>
-              <div style={{ fontSize: 15, fontWeight: 500, color: noData ? T.mute : col, lineHeight: 1.2, marginTop: 1 }}>{noData ? '–' : n}</div>
-              <div style={{ fontSize: 9, color: home ? standortAccent : T.mute, marginTop: 0 }}>{noData ? 'n/a' : (hasLocs ? `/ ${ALL_LOC_KEYS.reduce((s, k) => s + (locs[k] ?? 0), 0)}` : 'Stk')}</div>
+              <div style={{ fontSize: 9, color: lc, fontWeight: home ? 500 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sd.shortLabel}</div>
+              <div style={{ fontSize: 15, fontWeight: 500, color: noData ? subCol : numCol, lineHeight: 1.2, marginTop: 1 }}>{noData ? '–' : n}</div>
+              <div style={{ fontSize: 9, color: subCol, marginTop: 0 }}>{noData ? 'n/a' : 'Stk'}</div>
             </div>
           );
         })}
@@ -307,10 +316,24 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   // ── CopyBtn: kleiner Kopier-Button ────────────────────────────
   const CopyBtn = ({ text }) => {
     const [copied, setCopied] = React.useState(false);
-    const copy = () => {
-      try { navigator.clipboard.writeText(text); } catch (e) {}
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+    const copy = (e) => {
+      e.stopPropagation();
+      const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (_) {}
+          document.body.removeChild(ta); done();
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta); done();
+      }
     };
     return (
       <button onClick={copy} title="Kopieren" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '1px 3px', color: copied ? T.stock.ok : T.mute, lineHeight: 1, flexShrink: 0 }}>
@@ -395,7 +418,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
               <span style={{ fontSize: 9, fontWeight: 500, color: T.dark ? standortAccent : '#fff', background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gescannt</span>
               <span style={{ fontSize: F(13), fontWeight: 500, color: '#fff' }}>{currentLabel}</span>
             </div>
-            <StandortChips locs={currentSlave.locs} stockFallback={currentSlave.stock ?? 0} />
+            <StandortChips locs={currentSlave.locs} stockFallback={currentSlave.stock ?? 0} darkBg={true} />
           </div>
         )}
 
@@ -662,6 +685,16 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
                 {detail.inactive   && <span style={{ fontSize: F(11), fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b55', padding: '2px 8px', borderRadius: 6 }}>⚠ Artikel inaktiv</span>}
                 {detail.restposten && <span style={{ fontSize: F(11), fontWeight: 700, color: '#7c2d12', background: '#ffedd5', border: '1px solid #f9731655', padding: '2px 8px', borderRadius: 6 }}>🏷 Restposten</span>}
               </div>
+              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
+                  <span>Art. {detail.art}</span>
+                  <CopyBtn text={detail.art || ''} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
+                  <span>EAN {detail.ean}</span>
+                  <CopyBtn text={detail.ean || ''} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -778,17 +811,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
             )}
           </div>
 
-          {/* Art.-Nr. + EAN */}
-          <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
-              <span>Art. {detail.art}</span>
-              <CopyBtn text={detail.art || ''} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
-              <span>EAN {detail.ean}</span>
-              <CopyBtn text={detail.ean || ''} />
-            </div>
-          </div>
           {!shopBtnUrl && (
             <div style={{ textAlign: 'center', fontSize: F(11), color: T.mute, marginBottom: T.gap }}>Kein Onlineshop-Eintrag gefunden</div>
           )}
