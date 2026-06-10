@@ -61,6 +61,10 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const [q, setQ] = useState('');
   const [standort, setStandort] = useState(STANDORTE[0]);
   const [showStandortPicker, setShowStandortPicker] = useState(false);
+  const [searchHistory, setSearchHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('atlantis_search_history') || '[]'); }
+    catch { return []; }
+  });
 
 
 
@@ -787,6 +791,23 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const [filterBrand, setFilterBrand] = useState(null);
   const [filterCat,   setFilterCat]   = useState(null);
   const [filterAktion, setFilterAktion] = useState(false);
+  const [visibleCap, setVisibleCap] = useState(40);
+
+  // Suchverlauf speichern (debounced: erst wenn mind. 2 Zeichen & 800ms keine Eingabe)
+  useEffect(() => {
+    if (q.trim().length < 2) return;
+    const id = setTimeout(() => {
+      setSearchHistory((prev) => {
+        const next = [q.trim(), ...prev.filter((s) => s !== q.trim())].slice(0, 8);
+        try { localStorage.setItem('atlantis_search_history', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }, 800);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  // visibleCap zurücksetzen bei neuer Suche/Filter
+  useEffect(() => { setVisibleCap(40); }, [q, filterBrand, filterCat, filterAktion]);
   const toks = q2.length >= 2 ? q2.split(/\s+/).filter(Boolean) : [];
   const SEARCH_CAP = 40;
 
@@ -802,7 +823,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     });
   }, [PRODUCTS, toks, filterBrand, filterCat, filterAktion]);
 
-  const shown = matches.slice(0, SEARCH_CAP);
+  const shown = matches.slice(0, visibleCap);
   const activeFilters = (filterBrand ? 1 : 0) + (filterCat ? 1 : 0) + (filterAktion ? 1 : 0);
 
   // Aktiven Chip-Label für die Anzeige finden
@@ -926,12 +947,46 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: `0 ${T.pad}px ${T.pad}px`, display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
         {toks.length === 0 && !filterBrand && !filterCat && !filterAktion ? (
-          <div style={{ textAlign: 'center', color: T.mute, marginTop: 40, fontSize: F(14), lineHeight: 1.5 }}>Mindestens 2 Zeichen eingeben<br />oder Marke / Kategorie antippen</div>
+          searchHistory.length > 0 ? (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: F(12), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{Icon.history(T.mute, 14)} Zuletzt gesucht</span>
+                <button onClick={() => { setSearchHistory([]); try { localStorage.removeItem('atlantis_search_history'); } catch {} }}
+                  style={{ border: 'none', background: 'none', color: T.mute, fontSize: F(12), cursor: 'pointer', fontFamily: 'inherit' }}>Löschen</button>
+              </div>
+              {searchHistory.map((s) => (
+                <button key={s} onClick={() => setQ(s)}
+                  style={{ width: '100%', textAlign: 'left', border: `1px solid ${T.border}`, cursor: 'pointer',
+                    background: T.card, borderRadius: T.radius, padding: '10px 14px',
+                    marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10,
+                    boxShadow: T.tileShadow, fontFamily: 'inherit' }}>
+                  {Icon.history(T.mute, 16)}
+                  <span style={{ fontSize: F(14), color: T.ink, flex: 1 }}>{s}</span>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <path d="M7 17L17 7M7 7h10v10" stroke={T.mute} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: T.mute, marginTop: 40, fontSize: F(14), lineHeight: 1.5 }}>Mindestens 2 Zeichen eingeben<br />oder Marke / Kategorie antippen</div>
+          )
         ) : shown.length ? (
           <>
             <div style={{ fontSize: F(12), color: T.mute, paddingTop: 8 }}>{matches.length} Treffer{activeFilters > 0 ? ` · ${activeFilters} Filter aktiv` : ''}</div>
             {shown.map((p, i) => <ListRow key={(p.ean || p.id) + '_' + i} p={p} />)}
-            {matches.length > SEARCH_CAP && <div style={{ textAlign: 'center', color: T.mute, fontSize: F(12), padding: '8px 0 4px' }}>+{(matches.length - SEARCH_CAP).toLocaleString('de-DE')} weitere · Suche verfeinern</div>}
+            {matches.length > visibleCap && (
+              <button onClick={() => setVisibleCap((c) => c + 40)}
+                style={{ width: '100%', padding: '13px', background: T.card,
+                  border: `1px solid ${T.border}`, borderRadius: T.radius,
+                  color: T.ink, fontSize: F(14), fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, boxShadow: T.tileShadow }}>
+                {Icon.chevron(standortAccent, 18)}
+                Mehr laden
+                <span style={{ color: T.mute, fontSize: F(12) }}>(+{(matches.length - visibleCap).toLocaleString('de-DE')} weitere)</span>
+              </button>
+            )}
           </>
         ) : (
           <div style={{ textAlign: 'center', color: T.mute, marginTop: 50, fontSize: F(14) }}>Keine Treffer{q ? ` für „${q}"` : ''}{activeFilters > 0 ? ' mit diesen Filtern' : ''}</div>
