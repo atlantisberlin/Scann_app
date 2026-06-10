@@ -848,6 +848,11 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   })();
 
   // ── Scan-Tab ──────────────────────────────────────────────────
+  // Anzahl Aktionsartikel für den Banner + Suggestion (muss vor scanTab stehen)
+  const aktionenCount = useMemo(() =>
+    PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebote?.[standort.key]).length,
+  [PRODUCTS, standort]);
+
   const onText = T.dark ? '#06131f' : '#fff';
   const scanTab = (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
@@ -1013,11 +1018,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
       {label}{active ? ' ×' : ''}
     </button>
   );
-
-  // Anzahl Aktionsartikel für die Suggestion
-  const aktionenCount = useMemo(() =>
-    PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebote?.[standort.key]).length,
-  [PRODUCTS, standort]);
 
   // Zeige Aktions-Suggestion wenn Eingabe auf "aktion" matcht
   const showAktionSuggestion = q.trim().length >= 2
