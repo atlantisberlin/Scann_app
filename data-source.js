@@ -127,6 +127,9 @@ window.IMAGE_BASE_URL  = 'https://www.atlantiscloud.de/images/products/gross/';
       // Aktionsangebot: Freitext aus Spalte "Aktionsangebot" — leer = kein Angebot
       const aktionsangebot = (r.Aktionsangebot || r.AKTIONSANGEBOT || '').trim() || null;
 
+      // Kein Preis vorhanden → Hinweis für den Kunden
+      const noPrice = price === 0 && uvp === 0;
+
       // slaveArts: nur für Master-Artikel befüllt
       const slaveArts = isMaster ? (masterSlaveMap[art.toLowerCase()] || []) : [];
 
@@ -147,12 +150,13 @@ window.IMAGE_BASE_URL  = 'https://www.atlantiscloud.de/images/products/gross/';
         locs,
         image,
         shopUrl,
-        isMaster,
+        isMaster:      isMaster && slaveArts.length > 0,
         masterArt:     masterModel || null,
         slaveArts,
         inactive:      isInactive,
         restposten:    isRestposten,
         aktionsangebot,
+        noPrice,
         variants:      [],
         _s: (name + ' ' + brand + ' ' + art + ' ' + cat + ' ' + ean).toLowerCase(),
       };
