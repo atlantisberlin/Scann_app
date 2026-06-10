@@ -266,7 +266,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
             <span style={{ fontSize: F(12), color: T.mute }}>{stock} Stk</span>
             {p.inactive   && <span style={{ fontSize: F(10), fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '1px 5px', borderRadius: 4 }}>inaktiv</span>}
             {p.restposten && <span style={{ fontSize: F(10), fontWeight: 700, color: '#7c2d12', background: '#ffedd5', padding: '1px 5px', borderRadius: 4 }}>Restposten</span>}
-            {p.aktionsangebot && <span onClick={(e) => { e.stopPropagation(); goToAktionen(); }} style={{ fontSize: F(10), fontWeight: 700, color: '#3d2b00', background: 'linear-gradient(90deg, #daa520, #ffd700, #daa520)', padding: '1px 7px', borderRadius: 4, cursor: 'pointer' }}>🏷 Aktion</span>}
+            {p.aktionsangebote?.[standort.key] && <span onClick={(e) => { e.stopPropagation(); goToAktionen(); }} style={{ fontSize: F(10), fontWeight: 700, color: '#3d2b00', background: 'linear-gradient(90deg, #daa520, #ffd700, #daa520)', padding: '1px 7px', borderRadius: 4, cursor: 'pointer' }}>🏷 Aktion</span>}
           </div>
         </div>
         {Icon.chevron(T.mute, 20)}
@@ -388,7 +388,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
                 {sp.price > 0 && <span style={{ fontSize: F(12), fontWeight: 500, color: onSale ? T.red : standortAccent }}>{EUR(sp.price)}</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: sp.aktionsangebot ? 4 : 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: sp.aktionsangebote?.[standort.key] ? 4 : 7 }}>
               <span style={{ fontSize: F(10), color: T.mute, fontFamily: 'ui-monospace,Menlo,monospace' }}>{sp.art}</span>
               <CopyBtn text={sp.art} />
               {shopUrl && (
@@ -399,10 +399,10 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
                 </a>
               )}
             </div>
-            {sp.aktionsangebot && (
+            {sp.aktionsangebote?.[standort.key] && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7, background: '#DAA52018', border: '0.5px solid #DAA52066', borderRadius: 5, padding: '3px 7px' }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#854F0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#854F0B" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: F(11), color: '#633806', fontWeight: 500 }}>{sp.aktionsangebot}</span>
+                <span style={{ fontSize: F(11), color: '#633806', fontWeight: 500 }}>{sp.aktionsangebote?.[standort.key]}</span>
               </div>
             )}
             <StandortChips locs={sp.locs} stockFallback={stock} />
@@ -704,7 +704,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           </div>
 
           {/* Aktionsbanner */}
-          {detail.aktionsangebot && (
+          {detail.aktionsangebote?.[standort.key] && (
             <div onClick={goToAktionen}
               style={{
                 marginTop: T.gap, borderRadius: T.radius, padding: '10px 14px',
@@ -717,7 +717,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
               </svg>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: F(10), fontWeight: 700, color: '#5a3e00', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Aktionsangebot</div>
-                <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00', lineHeight: 1.3 }}>{detail.aktionsangebot}</div>
+                <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00', lineHeight: 1.3 }}>{detail.aktionsangebote?.[standort.key]}</div>
               </div>
               <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: F(11), color: '#3d2b00', fontWeight: 700 }}>Alle</span>
@@ -852,6 +852,26 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const scanTab = (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
       <Header title="Scannen" sub={meta || 'Artikel-Etikett erfassen'} />
+      {aktionenCount > 0 && (
+        <div onClick={goToAktionen}
+          style={{ margin: `${T.gap}px ${T.pad}px 0`, background: '#DAA520', borderRadius: T.radius,
+            padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: F(10), fontWeight: 700, color: '#5a3e00', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aktuelle Aktionsangebote</div>
+            <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00' }}>{aktionenCount} Artikel mit Sonderpreisen in {standort.label}</div>
+          </div>
+          <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: F(11), color: '#3d2b00', fontWeight: 700 }}>Alle</span>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14M13 6l6 6-6 6" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'auto', padding: T.pad }}>
         <div style={{ background: T.card, borderRadius: 18, padding: 18, border: `1px solid ${T.border}`, boxShadow: T.tileShadow, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
@@ -969,7 +989,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
       const textOk   = toks.length === 0 || tokenMatch(s, toks);
       const brandOk  = !filterBrand  || p.brand === filterBrand;
       const catOk    = !filterCat    || p.cat   === filterCat;
-      const aktionOk = !filterAktion || !!p.aktionsangebot;
+      const aktionOk = !filterAktion || !!p.aktionsangebote?.[standort.key];
       return textOk && brandOk && catOk && aktionOk;
     });
   }, [PRODUCTS, toks, filterBrand, filterCat, filterAktion]);
@@ -996,8 +1016,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
 
   // Anzahl Aktionsartikel für die Suggestion
   const aktionenCount = useMemo(() =>
-    PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebot).length,
-  [PRODUCTS]);
+    PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebote?.[standort.key]).length,
+  [PRODUCTS, standort]);
 
   // Zeige Aktions-Suggestion wenn Eingabe auf "aktion" matcht
   const showAktionSuggestion = q.trim().length >= 2
