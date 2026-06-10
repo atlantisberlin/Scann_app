@@ -1,0 +1,49 @@
+<!DOCTYPE html> 
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Atlantis Scan</title>
+
+  <!-- PWA / Add to Home Screen -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a3c6e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Atlantis Scan" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; overscroll-behavior: none; background: #eef2f7; }
+    body { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    #root { height: 100%; }
+    @keyframes sweep { 0% { top: 16px; } 100% { top: calc(100% - 16px); } }
+    .scanline { animation: sweep 1.05s cubic-bezier(.45,0,.55,1) infinite alternate; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    input::placeholder { opacity: 0.7; }
+    /* html5-qrcode: hide its default UI chrome, let the video fill the frame */
+    #scanner-cam video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    #scanner-cam img { display: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <script src="data.js"></script>
+  <script src="data-source.js"></script>
+  <script type="text/babel" src="shared-ui.jsx"></script>
+  <script type="text/babel" src="scanner-c.jsx"></script>
+  <script type="text/babel" src="app-pwa.jsx"></script>
+</body>
+</html>
