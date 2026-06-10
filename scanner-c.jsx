@@ -385,11 +385,10 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
               <span style={{ fontSize: F(13), fontWeight: 500, color: T.ink }}>{label}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                {sp.aktionsangebot && <span style={{ fontSize: 9, background: '#DAA520', color: '#3d2b00', padding: '1px 5px', borderRadius: 4, fontWeight: 500 }}>Aktion</span>}
                 {sp.price > 0 && <span style={{ fontSize: F(12), fontWeight: 500, color: onSale ? T.red : standortAccent }}>{EUR(sp.price)}</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: sp.aktionsangebot ? 4 : 7 }}>
               <span style={{ fontSize: F(10), color: T.mute, fontFamily: 'ui-monospace,Menlo,monospace' }}>{sp.art}</span>
               <CopyBtn text={sp.art} />
               {shopUrl && (
@@ -400,6 +399,12 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
                 </a>
               )}
             </div>
+            {sp.aktionsangebot && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7, background: '#DAA52018', border: '0.5px solid #DAA52066', borderRadius: 5, padding: '3px 7px' }}>
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#854F0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#854F0B" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                <span style={{ fontSize: F(11), color: '#633806', fontWeight: 500 }}>{sp.aktionsangebot}</span>
+              </div>
+            )}
             <StandortChips locs={sp.locs} stockFallback={stock} />
           </div>
         </div>
