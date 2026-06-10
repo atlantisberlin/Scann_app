@@ -124,8 +124,19 @@ window.IMAGE_BASE_URL  = 'https://www.atlantiscloud.de/images/products/gross/';
       const isInactive     = statusVal === '0';
       const isRestposten   = restpostenVal === 'JA';
 
-      // Aktionsangebot: Freitext aus Spalte "Aktionsangebot" — leer = kein Angebot
-      const aktionsangebot = (r.Aktionsangebot || r.AKTIONSANGEBOT || '').trim() || null;
+      // Aktionsangebot: jetzt pro Standort — Spalten "Aktionsangebot Coppi" etc.
+      // aktionsangebote = { coppi: '...', zentral: '...', ... } — leer = kein Angebot
+      const aktionsangebote = {};
+      LOCATIONS.forEach((L) => {
+        const colName = 'Aktionsangebot ' + L.label;
+        const val = (r[colName] || '').trim();
+        if (val) aktionsangebote[L.key] = val;
+      });
+      // Rückwärtskompatibilität: alte Spalte "Aktionsangebot" falls neue nicht vorhanden
+      if (Object.keys(aktionsangebote).length === 0) {
+        const legacy = (r.Aktionsangebot || r.AKTIONSANGEBOT || '').trim();
+        if (legacy) LOCATIONS.forEach((L) => { aktionsangebote[L.key] = legacy; });
+      }
 
       // Kein Preis vorhanden → Hinweis für den Kunden
       const noPrice = price === 0 && uvp === 0;
@@ -155,7 +166,7 @@ window.IMAGE_BASE_URL  = 'https://www.atlantiscloud.de/images/products/gross/';
         slaveArts,
         inactive:      isInactive,
         restposten:    isRestposten,
-        aktionsangebot,
+        aktionsangebote,
         noPrice,
         variants:      [],
         _s: (name + ' ' + brand + ' ' + art + ' ' + cat + ' ' + ean).toLowerCase(),
