@@ -195,8 +195,10 @@ window.IMAGE_BASE_URL  = 'https://www.atlantiscloud.de/images/products/gross/';
   }
 
   async function load(url) {
-    const live = url || window.DATA_SOURCE_URL;
+    let live = url || window.DATA_SOURCE_URL;
     if (!live) return { products: [], at: new Date(), live: false, fallback: false, error: 'Keine Datenquelle konfiguriert.' };
+    // Cache-Buster verhindert Google-seitiges CSV-Caching
+    live = live + (live.includes('?') ? '&' : '?') + '_cb=' + Date.now();
     try {
       const products = await fetchCsv(live, 8000);
       return { products, at: new Date(), live: true, src: live, fallback: false };
