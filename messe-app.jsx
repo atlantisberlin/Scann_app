@@ -811,6 +811,8 @@
     }, [adminView, reloadUsers]);
     const [newUser, setNewUser] = React.useState({ vorname: '', nachname: '', username: '', password: '', role: 'messe' });
     const [newLp, setNewLp]     = React.useState({ name: '', color: GOLD });
+    const [addedMsg, setAddedMsg] = React.useState('');
+    const [busy, setBusy]         = React.useState(false);
     const orders = MesseAuth.getOrders();
 
     const COLORS = [GOLD, '#b8860b', '#a16207', '#78350f', '#92400e', '#1a3c6e'];
@@ -835,9 +837,6 @@
         if (u.role === 'messe') return { label: 'Messe',      bg: GOLD_BG,               color: GOLD_DARK, border: GOLD_BORDER };
         return                         { label: 'Mitarbeiter', bg: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.55)', border: 'rgba(255,255,255,.15)' };
       };
-
-      const [addedMsg, setAddedMsg] = React.useState('');
-      const [busy, setBusy] = React.useState(false);
 
       const addUser = async () => {
         if (!newUser.vorname || !newUser.nachname || !newUser.username || !newUser.password) {
