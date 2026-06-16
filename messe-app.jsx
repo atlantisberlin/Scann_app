@@ -160,10 +160,9 @@
   // ── Messe Tab Bar ──────────────────────────────────────────────
   function MesseTabBar({ tab, setTab, cartCount }) {
     const TABS = [
-      { key: 'scan',    label: 'Scannen',   icon: '📷' },
-      { key: 'cart',    label: 'Warenkorb', icon: '🛒', badge: cartCount },
-      { key: 'history', label: 'Verlauf',   icon: '🕐' },
-      { key: 'lager',   label: 'Lager',     icon: '📦' },
+      { key: 'scan',  label: 'Scannen',   icon: '📷' },
+      { key: 'cart',  label: 'Warenkorb', icon: '🛒', badge: cartCount },
+      { key: 'lager', label: 'Lager',     icon: '📦' },
     ];
     return (
       <div style={{
@@ -193,31 +192,26 @@
   // ── Scan Tab ───────────────────────────────────────────────────
   function MesseScanTab({ products, messeHistory, onProductOpen, onProductScanned, cart, setCart }) {
     const { useState, useRef, useEffect, useCallback, useMemo } = React;
-    const { EUR } = ATLANTIS;
-    const { ProductPhoto, Icon } = AUI;
 
-    const [cam, setCam]             = useState('idle');
+    const [cam, setCam]               = useState('idle');
     const [camOverlay, setCamOverlay] = useState(false);
-    const [camMsg, setCamMsg]       = useState('');
-    const [notFound, setNotFound]   = useState(null);
+    const [camMsg, setCamMsg]         = useState('');
+    const [notFound, setNotFound]     = useState(null);
     const [scanSuccess, setScanSuccess] = useState(false);
-    const [torchOn, setTorchOn]     = useState(false);
     const [facingMode, setFacingMode] = useState('environment');
-    const [searchActive, setSearchActive] = useState(false);
-    const [q, setQ]                 = useState('');
+    const [q, setQ]                   = useState('');
     const [filterBrand, setFilterBrand] = useState(null);
-    const [filterCat, setFilterCat] = useState(null);
     const [visibleCap, setVisibleCap] = useState(40);
     const [detailSheet, setDetailSheet] = useState(null);
 
-    const camRef      = useRef(null);
-    const nfTimer     = useRef(0);
-    const lastCode    = useRef('');
-    const lastCodeAt  = useRef(0);
+    const camRef     = useRef(null);
+    const nfTimer    = useRef(0);
+    const lastCode   = useRef('');
+    const lastCodeAt = useRef(0);
+    const searchRef  = useRef(null);
 
     const CAM = typeof Html5Qrcode !== 'undefined' && typeof navigator !== 'undefined' && !!navigator.mediaDevices;
 
-    // build EAN index
     const codeIndex = useMemo(() => {
       const ei = {}, ai = {};
       (products || []).forEach(p => {
@@ -237,10 +231,9 @@
       const inst = camRef.current; camRef.current = null;
       if (inst) { try { inst.stop().then(() => inst.clear()).catch(() => {}); } catch (e) {} }
       setCam(c => (c === 'live' ? 'idle' : c));
-      setTorchOn(false);
     }, []);
 
-    const handleStopCamera = useCallback(() => {
+    const closeCam = useCallback(() => {
       stopCamera();
       setCamOverlay(false);
       setNotFound(null);
@@ -260,7 +253,7 @@
         navigator.vibrate && navigator.vibrate(60);
         setTimeout(() => {
           setScanSuccess(false);
-          handleStopCamera();
+          closeCam();
           onProductScanned(product, c);
           setDetailSheet(product);
         }, 500);
@@ -269,18 +262,18 @@
         clearTimeout(nfTimer.current);
         nfTimer.current = setTimeout(() => setNotFound(null), 3500);
       }
-    }, [lookup, handleStopCamera, onProductScanned]);
+    }, [lookup, closeCam, onProductScanned]);
 
     const startCamera = useCallback((facing = 'environment') => {
       if (!CAM || camRef.current) return;
       setNotFound(null); setScanSuccess(false); setCamMsg(''); setCam('live');
       let inst;
-      try { inst = new Html5Qrcode('scanner-cam', { verbose: false }); }
+      try { inst = new Html5Qrcode('scanner-cam-messe', { verbose: false }); }
       catch (e) { setCam('error'); setCamMsg('Scanner konnte nicht gestartet werden.'); return; }
       camRef.current = inst;
       inst.start(
         { facingMode: facing },
-        { fps: 30, qrbox: (w, h) => ({ width: Math.round(w * 0.92), height: Math.round(h * 0.38) }),
+        { fps: 30, qrbox: (w, h) => ({ width: Math.round(w * 0.88), height: Math.round(h * 0.36) }),
           videoConstraints: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
         text => handleCode(text), () => {}
       ).catch(e => {
@@ -300,60 +293,25 @@
     useEffect(() => () => stopCamera(), [stopCamera]);
 
     const messeBestand = MesseAuth.getMesseBestand();
-
-    // search
     const q2 = q.trim().toLowerCase();
     const toks = q2.length >= 2 ? q2.split(/\s+/).filter(Boolean) : [];
-    const tokenMatch = (s, ts) => ts.every(t => s.includes(t));
 
     const matches = useMemo(() => {
+      if (toks.length === 0) return [];
       return (products || []).filter(p => {
         if (p.isMaster) return false;
         const s = (p.name + ' ' + p.brand + ' ' + p.art + ' ' + p.cat + ' ' + p.ean).toLowerCase();
-        return (toks.length === 0 || tokenMatch(s, toks))
-          && (!filterBrand || p.brand === filterBrand)
-          && (!filterCat   || p.cat   === filterCat);
+        return toks.every(t => s.includes(t)) && (!filterBrand || p.brand === filterBrand);
       });
-    }, [products, toks, filterBrand, filterCat]);
+    }, [products, toks, filterBrand]);
 
-    useEffect(() => { setVisibleCap(40); }, [q, filterBrand, filterCat]);
+    useEffect(() => { setVisibleCap(40); }, [q, filterBrand]);
 
-    const fmtTime = at => {
-      const d = new Date(at);
-      return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    };
+    const brands = useMemo(() =>
+      [...new Set((products || []).filter(p => !p.isMaster && p.brand).map(p => p.brand))].slice(0, 8),
+    [products]);
 
-    // Camera overlay
-    const CamBox = () => (
-      <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#0b1726', borderRadius: 16, overflow: 'hidden', flexShrink: 0 }}>
-        <div id="scanner-cam" style={{ position: 'absolute', inset: 0 }} />
-        {/* corner markers */}
-        {[['0%','0%','right','bottom'],['0%','auto','right','top'],['auto','0%','left','bottom'],['auto','auto','left','top']].map(([t,b,br,tl],i) => (
-          <div key={i} style={{ position: 'absolute', top: t, bottom: b, left: tl === 'left' ? 12 : undefined, right: br === 'right' ? 12 : undefined, width: 20, height: 20, pointerEvents: 'none',
-            borderTop: (tl === 'left' && b === 'auto') || (tl === 'right' && b === 'auto') ? `3px solid ${GOLD}` : 'none',
-            borderBottom: (b !== 'auto') ? `3px solid ${GOLD}` : 'none',
-            borderLeft: (tl === 'left') ? `3px solid ${GOLD}` : 'none',
-            borderRight: (tl === 'right') ? `3px solid ${GOLD}` : 'none',
-          }} />
-        ))}
-        {/* scan success flash */}
-        {scanSuccess && <div style={{ position: 'absolute', inset: 0, background: 'rgba(218,165,32,0.25)', borderRadius: 16, pointerEvents: 'none' }} />}
-        {/* not found */}
-        {notFound && <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(200,16,46,.9)', color: '#fff', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>Nicht gefunden: {notFound}</div>}
-        {/* error / idle */}
-        {cam === 'error' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
-          <div style={{ color: '#ff8a8a', fontSize: 13, textAlign: 'center', padding: 16 }}>{camMsg}</div>
-        </div>}
-        {/* top bar */}
-        {cam === 'live' && (
-          <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
-            <button onClick={() => { const next = facingMode === 'environment' ? 'user' : 'environment'; setFacingMode(next); stopCamera(); setTimeout(() => startCamera(next), 300); }}
-              style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔄</button>
-          </div>
-        )}
-      </div>
-    );
-
+    // ── Detail sheet ──
     if (detailSheet) {
       const mStock = messeBestand[String(detailSheet.ean)] != null ? messeBestand[String(detailSheet.ean)] : 0;
       return (
@@ -367,24 +325,80 @@
       );
     }
 
-    if (searchActive) {
-      const brands = [...new Set((products || []).filter(p => !p.isMaster && p.brand).map(p => p.brand))].slice(0, 8);
+    // ── Full-screen camera overlay ──
+    if (camOverlay) {
       return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px 8px', background: CARD_BG, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Suche nach Name, EAN, Art.-Nr. …"
-              style={{ flex: 1, height: 42, borderRadius: 12, border: `1.5px solid ${GOLD_BORDER}`, padding: '0 14px', fontSize: 15, fontFamily: 'inherit', outline: 'none', background: GOLD_BG }} />
-            <button onClick={() => { setSearchActive(false); setQ(''); setFilterBrand(null); setFilterCat(null); }}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>Abbrechen</button>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: '#0b1120', display: 'flex', flexDirection: 'column' }}>
+          {/* top bar */}
+          <div style={{ paddingTop: 'calc(env(safe-area-inset-top,12px) + 12px)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <button onClick={closeCam} style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,.1)', color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', flex: 1 }}>Artikel scannen</div>
+            <button onClick={() => { const next = facingMode === 'environment' ? 'user' : 'environment'; setFacingMode(next); stopCamera(); setTimeout(() => startCamera(next), 300); }}
+              style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,.1)', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔄</button>
           </div>
-          <div style={{ padding: '8px 16px', display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', flexShrink: 0 }}>
-            {brands.map(b => (
-              <button key={b} onClick={() => setFilterBrand(filterBrand === b ? null : b)}
-                style={{ border: `1px solid ${filterBrand === b ? GOLD : BORDER}`, background: filterBrand === b ? GOLD_BG : CARD_BG, color: filterBrand === b ? GOLD_DARK : '#1b2733', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{b}</button>
+          {/* camera */}
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <div id="scanner-cam-messe" style={{ position: 'absolute', inset: 0 }} />
+            {/* corner markers */}
+            {[{t:0,l:0},{t:0,r:0},{b:0,l:0},{b:0,r:0}].map((pos, i) => (
+              <div key={i} style={{ position: 'absolute', width: 28, height: 28, top: pos.t !== undefined ? '50%' : undefined, bottom: pos.b !== undefined ? '50%' : undefined, left: pos.l !== undefined ? '50%' : undefined, right: pos.r !== undefined ? '50%' : undefined,
+                marginTop: pos.t !== undefined ? -70 : -70+28, marginBottom: pos.b !== undefined ? -70 : undefined,
+                marginLeft: pos.l !== undefined ? -70 : -70+28, marginRight: pos.r !== undefined ? -70 : undefined,
+                borderTop: pos.t !== undefined ? `3px solid ${GOLD}` : 'none', borderBottom: pos.b !== undefined ? `3px solid ${GOLD}` : 'none',
+                borderLeft: pos.l !== undefined ? `3px solid ${GOLD}` : 'none', borderRight: pos.r !== undefined ? `3px solid ${GOLD}` : 'none',
+                borderRadius: i === 0 ? '4px 0 0 0' : i === 1 ? '0 4px 0 0' : i === 2 ? '0 0 0 4px' : '0 0 4px 0',
+                pointerEvents: 'none',
+              }} />
             ))}
+            {scanSuccess && <div style={{ position: 'absolute', inset: 0, background: 'rgba(218,165,32,0.3)', pointerEvents: 'none' }} />}
+            {notFound && <div style={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: 'rgba(200,16,46,.9)', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>Nicht gefunden: {notFound}</div>}
+            {cam === 'error' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+              <div style={{ color: '#ff8a8a', fontSize: 14, textAlign: 'center', fontWeight: 600 }}>{camMsg}</div>
+            </div>}
           </div>
-          <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: '8px 16px' }}>
+          <div style={{ padding: '14px 16px', paddingBottom: 'calc(env(safe-area-inset-bottom,10px) + 14px)', flexShrink: 0 }}>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.45)', textAlign: 'center' }}>Barcode in den Rahmen halten</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Main scan screen ──
+    const showSearch = toks.length > 0;
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Search bar always at top */}
+        <div style={{ padding: '12px 15px 10px', background: HDR_BG, borderBottom: `1px solid ${GOLD_BORDER}`, flexShrink: 0 }}>
+          <div style={{ background: CARD_BG, border: `1.5px solid ${showSearch ? GOLD : GOLD_BORDER}`, borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 14px', height: 50, boxShadow: '0 2px 8px rgba(218,165,32,.1)' }}>
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="7" stroke="#94a3b8" strokeWidth="2.2"/><path d="M16.5 16.5L21 21" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round"/></svg>
+            <input
+              ref={searchRef}
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Artikel suchen …"
+              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit', color: '#1b2733', background: 'transparent' }}
+            />
+            {q && <button onClick={() => setQ('')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 18, padding: '0 2px', display: 'flex', alignItems: 'center' }}>✕</button>}
+            {/* Scanner button */}
+            <button onClick={() => { if (!CAM) return; setCamOverlay(true); }}
+              style={{ background: GOLD, border: 'none', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><rect x="3" y="7" width="4" height="10" rx="1"/><rect x="9" y="5" width="2" height="14" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/><rect x="18" y="6" width="2" height="12" rx="1"/></svg>
+            </button>
+          </div>
+          {/* Brand chips when searching */}
+          {showSearch && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, overflowX: 'auto', paddingBottom: 2 }}>
+              {brands.map(b => (
+                <button key={b} onClick={() => setFilterBrand(filterBrand === b ? null : b)}
+                  style={{ border: `1px solid ${filterBrand === b ? GOLD : BORDER}`, background: filterBrand === b ? GOLD_BG : CARD_BG, color: filterBrand === b ? GOLD_DARK : '#1b2733', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>{b}</button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Search results */}
+        {showSearch ? (
+          <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 15px' }}>
             {matches.slice(0, visibleCap).map(p => (
               <button key={p.ean || p.art} onClick={() => { setDetailSheet(p); onProductScanned(p, p.ean); }} style={{
                 width: '100%', textAlign: 'left', cursor: 'pointer', background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, fontFamily: 'inherit'
@@ -402,69 +416,38 @@
                 +{matches.length - visibleCap} weitere laden
               </button>
             )}
-            {matches.length === 0 && q2.length >= 2 && (
+            {matches.length === 0 && (
               <div style={{ textAlign: 'center', color: '#64748b', fontSize: 14, marginTop: 40 }}>Keine Artikel gefunden</div>
             )}
           </div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
-          {/* Camera box */}
-          <div style={{ marginBottom: 12 }}>
-            {camOverlay ? (
-              <div style={{ position: 'relative' }}>
-                <CamBox />
-                <button onClick={handleStopCamera} style={{ marginTop: 10, width: '100%', height: 44, borderRadius: 12, border: `1.5px solid ${GOLD_BORDER}`, background: GOLD_BG, color: GOLD_DARK, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  ✕ Kamera schließen
-                </button>
-              </div>
+        ) : (
+          /* History */
+          <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 15px' }}>
+            {messeHistory.length > 0 ? (
+              <>
+                <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Zuletzt gescannt</div>
+                {messeHistory.map((h, i) => (
+                  <button key={`${h.product.ean}-${i}`} onClick={() => setDetailSheet(h.product)} style={{
+                    width: '100%', textAlign: 'left', cursor: 'pointer', background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, fontFamily: 'inherit'
+                  }}>
+                    <AUI.ProductPhoto product={h.product} dark={false} radius={8} style={{ width: 48, height: 48, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h.product.brand} · {new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#1b2733', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.product.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: GOLD_DARK, marginTop: 2 }}>{h.product.noPrice ? '–' : ATLANTIS.EUR(h.product.price)}</div>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </button>
+                ))}
+              </>
             ) : (
-              <button onClick={() => { if (!CAM) { setCam('error'); setCamMsg('Kein Kamerazugriff auf diesem Gerät.'); return; } setCamOverlay(true); }}
-                style={{ width: '100%', paddingTop: '56.25%', position: 'relative', background: '#1b2733', borderRadius: 16, border: 'none', cursor: 'pointer', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 36 }}>📷</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>Kamera starten</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Tippen um zu scannen</div>
-                </div>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, paddingBottom: 40 }}>
+                <div style={{ fontSize: 48, opacity: 0.3 }}>📦</div>
+                <div style={{ fontSize: 14, color: '#94a3b8', textAlign: 'center', lineHeight: 1.5 }}>Noch nichts gescannt.<br/>Tippe auf den Scanner-Button<br/>oder suche direkt.</div>
+              </div>
             )}
           </div>
-
-          {/* Search bar */}
-          <button onClick={() => setSearchActive(true)} style={{ width: '100%', height: 44, borderRadius: 12, border: `1.5px solid ${GOLD_BORDER}`, background: CARD_BG, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#64748b" strokeWidth="2"/><path d="M21 21l-4.35-4.35" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/></svg>
-            <span style={{ fontSize: 14, color: '#94a3b8' }}>Artikel suchen …</span>
-          </button>
-
-          {/* Recent */}
-          {messeHistory.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, fontWeight: 600 }}>Zuletzt gescannt</div>
-              {messeHistory.slice(0, 5).map((h, i) => (
-                <button key={`${h.product.ean}-${i}`} onClick={() => setDetailSheet(h.product)} style={{
-                  width: '100%', textAlign: 'left', cursor: 'pointer', background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, fontFamily: 'inherit'
-                }}>
-                  <AUI.ProductPhoto product={h.product} dark={false} radius={8} style={{ width: 48, height: 48, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h.product.brand} · {new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1b2733', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.product.name}</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: GOLD_DARK, marginTop: 2 }}>{h.product.noPrice ? '–' : ATLANTIS.EUR(h.product.price)}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-          {messeHistory.length === 0 && (
-            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginTop: 32 }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
-              <div>Noch keine Artikel gescannt</div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   }
@@ -1062,9 +1045,6 @@
           )}
           {tab === 'cart' && (
             <CartTab cart={cart} setCart={setCart} onOrderSent={() => setTab('scan')} />
-          )}
-          {tab === 'history' && (
-            <VerlaufTab messeHistory={messeHistory} />
           )}
           {tab === 'lager' && (
             <LagerTab />
