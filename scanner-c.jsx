@@ -140,8 +140,10 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const [torchOn, setTorchOn]   = useState(false);
   const [facingMode, setFacingMode] = useState('environment');
   const [manual, setManual]     = useState('');
-  const camRef  = useRef(null);
-  const nfTimer = useRef(0);
+  const camRef      = useRef(null);
+  const nfTimer     = useRef(0);
+  const lastCode    = useRef('');
+  const lastCodeAt  = useRef(0);
 
   // Suche (integriert in Scan-Tab)
   const [searchActive, setSearchActive] = useState(false);
@@ -217,18 +219,13 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     setNotFound(null); setScanSuccess(false); setCamMsg(''); setCam('live');
     const F2 = (typeof Html5QrcodeSupportedFormats !== 'undefined')
       ? [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-         Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-         Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
-         Html5QrcodeSupportedFormats.CODE_93, Html5QrcodeSupportedFormats.ITF,
-         Html5QrcodeSupportedFormats.CODABAR, Html5QrcodeSupportedFormats.DATA_MATRIX,
-         Html5QrcodeSupportedFormats.QR_CODE]
+         Html5QrcodeSupportedFormats.CODE_128]
       : undefined;
     let inst;
     try { inst = new Html5Qrcode('scanner-cam', { formatsToSupport: F2, verbose: false }); }
     catch (e) { setCam('error'); setCamMsg('Scanner konnte nicht gestartet werden.'); return; }
     camRef.current = inst;
-    // qrbox als Funktion: scannt 85% Breite × 50% Höhe (= deutlich mehr als vorher)
-    const qrboxFn = (w, h) => ({ width: Math.round(w * 0.85), height: Math.round(h * 0.50) });
+    const qrboxFn = (w, h) => ({ width: Math.round(w * 0.92), height: Math.round(h * 0.38) });
     inst.start(
       { facingMode: facing },
       { fps: 30, qrbox: qrboxFn,
@@ -242,14 +239,23 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     });
   }, [CAM]); // eslint-disable-line
 
+  const lockOrientation = () => {
+    try { screen.orientation?.lock('portrait').catch(() => {}); } catch (_) {}
+  };
+  const unlockOrientation = () => {
+    try { screen.orientation?.unlock(); } catch (_) {}
+  };
+
   // Kamera starten: overlay zeigen, dann nach einem Tick camera starten
   const handleStartCamera = () => {
     if (!CAM) { setCam('error'); setCamMsg('Kein Kamerazugriff auf diesem Gerät.'); return; }
+    lockOrientation();
     setCamOverlay(true);
   };
 
   const handleStopCamera = useCallback(() => {
     stopCamera();
+    unlockOrientation();
     setCamOverlay(false);
     setNotFound(null);
     setScanSuccess(false);
@@ -263,18 +269,26 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   }, [camOverlay]); // eslint-disable-line
 
   const handleCode = (code) => {
-    const product = lookup(code);
+    const c = String(code).trim();
+    // Debounce: gleichen Code nicht öfter als alle 1.5s verarbeiten
+    const now = Date.now();
+    if (c === lastCode.current && now - lastCodeAt.current < 1500) return;
+    lastCode.current = c;
+    lastCodeAt.current = now;
+
+    const product = lookup(c);
     if (product) {
       setNotFound(null);
       setScanSuccess(true);
-      const scannedEan = /^\d{8,14}$/.test(String(code).trim()) ? String(code).trim() : product.ean;
+      navigator.vibrate?.(60);
+      const scannedEan = /^\d{8,14}$/.test(c) ? c : product.ean;
       setTimeout(() => {
         setScanSuccess(false);
         handleStopCamera();
         open(product, scannedEan);
       }, 500);
     } else {
-      setNotFound(String(code).trim());
+      setNotFound(c);
       clearTimeout(nfTimer.current);
       nfTimer.current = setTimeout(() => setNotFound(null), 3500);
     }
