@@ -244,6 +244,7 @@ svg{flex-shrink:0}
   <button onclick="go('admin-login')">I Admin-Login</button>
   <button onclick="go('admin-dash')">J Admin-Dashboard</button>
   <button onclick="go('admin-users')">K Benutzerverwaltung</button>
+  <button onclick="go('admin-lagerplaetze')">K2 Lagerplätze</button>
   <button onclick="go('user-menu')">L User-Menü</button>
 </div>
 <div class="phone">
@@ -579,6 +580,7 @@ svg{flex-shrink:0}
 
     <div class="section-title" style="margin-top:4px">Schnellzugriff</div>
     <div class="ww-card" onclick="go('admin-users')"><div class="ww-icon" style="background:#eef2ff;width:42px;height:42px;border-radius:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="7" r="4" stroke="#6366f1" stroke-width="2"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/><path d="M16 11l2 2 4-4" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="inf"><div class="ttl">Benutzerverwaltung</div><div class="desc">Mitarbeiter anlegen, Rollen vergeben</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></div>
+    <div class="ww-card" onclick="go('admin-lagerplaetze')"><div class="ww-icon" style="background:#fefce8;width:42px;height:42px;border-radius:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#a16207" stroke-width="2" stroke-linecap="round"/></svg></div><div class="inf"><div class="ttl">Lagerplätze</div><div class="desc">Messe-Lagerplätze anlegen und verwalten</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></div>
     <div class="ww-card"><div class="ww-icon" style="background:#fef9ee;width:42px;height:42px;border-radius:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="#d97706" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="#d97706" stroke-width="2"/></svg></div><div class="inf"><div class="ttl">Messe-Bestellungen</div><div class="desc">Alle Bestellungen einsehen & exportieren</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></div>
     <div class="ww-card"><div class="ww-icon" style="background:#f0fdf4;width:42px;height:42px;border-radius:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#16a34a" stroke-width="2"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/></svg></div><div class="inf"><div class="ttl">Systemeinstellungen</div><div class="desc">Messe-Name, E-Mail, Google Sheet</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></div>
   </div>
@@ -632,6 +634,66 @@ svg{flex-shrink:0}
     <div class="user-row"><div class="av" style="background:#e0e7ff;color:#4338ca">S</div><div class="ui"><div class="uname">Sara Becker</div><div class="urole">sara.b · Messe + Lager</div></div><span class="role-pill messe">Messe</span></div>
     <div class="user-row"><div class="av">T</div><div class="ui"><div class="uname">Tom Winkler</div><div class="urole">tom.w · Nur Scanner</div></div><span class="role-pill staff">Mitarbeiter</span><button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button></div>
     <div class="user-row"><div class="av">L</div><div class="ui"><div class="uname">Lena Schmidt</div><div class="urole">lena.s · Messe</div></div><span class="role-pill messe">Messe</span><button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     K2 · LAGERPLÄTZE VERWALTEN (Admin)
+═══════════════════════════════════════ -->
+<div class="screen admin-screen" id="s-admin-lagerplaetze">
+  <div class="admin-hdr">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="go('admin-dash')" style="width:30px;height:30px;border-radius:8px;border:1px solid #334155;background:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#fff">Lagerplätze</div>
+          <div style="font-size:11px;color:#94a3b8">Messe-Lagerplätze · 4 angelegt</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="admin-scroll">
+    <!-- Neuen Lagerplatz anlegen -->
+    <div class="section-title">Neuen Lagerplatz anlegen</div>
+    <div class="new-user-form">
+      <div class="lbl">Name des Lagerplatzes</div>
+      <input class="field" type="text" placeholder="z. B. Halle A – Eingang" style="margin-bottom:12px"/>
+      <div class="lbl">Beschreibung (optional)</div>
+      <input class="field" type="text" placeholder="z. B. Haupthalle, rechte Seite" style="margin-bottom:12px"/>
+      <div class="lbl" style="margin-bottom:6px">Farbe / Markierung</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button style="width:32px;height:32px;border-radius:50%;background:#b8860b;border:3px solid #fff;outline:2px solid #b8860b;cursor:pointer"></button>
+        <button style="width:32px;height:32px;border-radius:50%;background:#a16207;border:2px solid transparent;cursor:pointer"></button>
+        <button style="width:32px;height:32px;border-radius:50%;background:#78350f;border:2px solid transparent;cursor:pointer"></button>
+        <button style="width:32px;height:32px;border-radius:50%;background:#92400e;border:2px solid transparent;cursor:pointer"></button>
+        <button style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;border:2px solid transparent;cursor:pointer"></button>
+        <button style="width:32px;height:32px;border-radius:50%;background:#15803d;border:2px solid transparent;cursor:pointer"></button>
+      </div>
+      <button class="btn-indigo" style="background:#a16207;border-color:#a16207">Lagerplatz anlegen</button>
+    </div>
+
+    <!-- Vorhandene Lagerplätze -->
+    <div class="section-title" style="margin-top:6px">Angelegte Lagerplätze</div>
+    <div class="user-row" style="border-left:3px solid #b8860b">
+      <div style="width:36px;height:36px;border-radius:10px;background:#fefce8;border:1.5px solid #fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#a16207" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="ui"><div class="uname">Halle A – Eingang</div><div class="urole">123 Artikel · Aktiv</div></div>
+      <button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="user-row" style="border-left:3px solid #a16207">
+      <div style="width:36px;height:36px;border-radius:10px;background:#fefce8;border:1.5px solid #fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#a16207" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="ui"><div class="uname">Halle B – Mitte</div><div class="urole">87 Artikel · Aktiv</div></div>
+      <button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="user-row" style="border-left:3px solid #78350f">
+      <div style="width:36px;height:36px;border-radius:10px;background:#fefce8;border:1.5px solid #fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#a16207" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="ui"><div class="uname">Lager B – Hinten</div><div class="urole">210 Artikel · Aktiv</div></div>
+      <button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="user-row" style="border-left:3px solid #92400e">
+      <div style="width:36px;height:36px;border-radius:10px;background:#fefce8;border:1.5px solid #fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#a16207" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#a16207" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="ui"><div class="uname">Service-Bereich</div><div class="urole">34 Artikel · Aktiv</div></div>
+      <button class="edit-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
   </div>
 </div>
 
@@ -696,7 +758,7 @@ svg{flex-shrink:0}
 
 </div><!-- /phone -->
 <script>
-const IDS={normal:'s-normal',login:'s-login',scan:'s-scan',product:'s-product',cart:'s-cart',confirm:'s-confirm',history:'s-history',ww:'s-ww','admin-login':'s-admin-login','admin-dash':'s-admin-dash','admin-users':'s-admin-users','user-menu':'s-user-menu'};
+const IDS={normal:'s-normal',login:'s-login',scan:'s-scan',product:'s-product',cart:'s-cart',confirm:'s-confirm',history:'s-history',ww:'s-ww','admin-login':'s-admin-login','admin-dash':'s-admin-dash','admin-users':'s-admin-users','admin-lagerplaetze':'s-admin-lagerplaetze','user-menu':'s-user-menu'};
 const LABELS=['normal','login','scan','product','cart','confirm','history','ww','admin-login','admin-dash','admin-users','user-menu'];
 function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));

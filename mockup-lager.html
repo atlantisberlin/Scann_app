@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>Mockup – Lager / Warenwirtschaft</title>
+<title>Mockup – Messe Lager / Warenwirtschaft</title>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -169,7 +169,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
 </style>
 </head>
 <body>
-<h1>Lager / Warenwirtschaft — Flows</h1>
+<h1>Messe · Lager / Warenwirtschaft — Flows (nur im Messe-Modus)</h1>
 <div class="legend">
   <div class="leg leg-we">🔵 Wareneingang</div>
   <div class="leg leg-inv">🟢 Inventur</div>
@@ -196,12 +196,18 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
      LAGER ÜBERSICHT
 ═══════════════════════════════════════ -->
 <div class="screen active" id="s-lager">
-  <div class="hdr">
-    <div class="hdr-title"><h2>Lager</h2><p>Warenwirtschaft · Coppi</p></div>
+  <div class="hdr" style="background:rgba(255,249,220,.96)">
+    <div class="hdr-title"><h2 style="color:#3d2b00">Lager</h2><p style="color:#7a5c00">Warenwirtschaft · Messe</p></div>
     <div class="hdr-right">
-      <div style="background:rgba(26,60,110,.08);border-radius:20px;padding:5px 11px;display:flex;align-items:center;gap:6px;outline:1.5px solid rgba(26,60,110,.2)">
-        <div style="width:9px;height:9px;border-radius:50%;background:var(--acc)"></div>
-        <span style="font-size:12px;font-weight:700;color:var(--acc)">Coppi</span>
+      <!-- Messe-Badge -->
+      <div style="background:var(--gold-bg);border-radius:20px;padding:5px 11px;display:flex;align-items:center;gap:6px;outline:1.5px solid var(--gold-border)">
+        <span style="font-size:14px">⭐</span>
+        <span style="font-size:12px;font-weight:700;color:var(--gold-dark)">Messe</span>
+      </div>
+      <!-- Eingeloggter User -->
+      <div style="background:rgba(26,60,110,.08);border-radius:20px;padding:4px 10px 4px 8px;display:flex;align-items:center;gap:5px;outline:1.5px solid rgba(26,60,110,.2)">
+        <div style="width:20px;height:20px;border-radius:10px;background:var(--acc);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">E</div>
+        <span style="font-size:12px;font-weight:700;color:var(--acc)">Erik F.</span>
       </div>
     </div>
   </div>
@@ -242,7 +248,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       </div>
       <div class="inf">
         <div class="ttl">Umlagerung</div>
-        <div class="desc">Bestand zwischen Standorten verschieben</div>
+        <div class="desc">Bestand zwischen Messe-Lagerplätzen verschieben</div>
       </div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
@@ -250,15 +256,17 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     <!-- Letzte Aktivitäten -->
     <div class="card" style="padding:13px">
       <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span>Letzte Aktivitäten</span><span style="font-size:11px;font-weight:600;color:var(--acc);cursor:pointer">Alle →</span></div>
-      <div class="act-row"><div class="act-icon" style="background:var(--blue-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="act-inf"><div class="t">Wareneingang · Coppi</div><div class="s">ScubaPro · 12 Stk</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill in">+12</span><span class="act-time">heute 09:14</span></div></div>
-      <div class="act-row"><div class="act-icon" style="background:var(--bk-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="var(--bk)" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="var(--bk)" stroke-width="2" stroke-linecap="round"/></svg></div><div class="act-inf"><div class="t">Korrektur · Steglitz</div><div class="s">Mares Flosse · Schwund</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill out">−2</span><span class="act-time">gestern</span></div></div>
-      <div class="act-row"><div class="act-icon" style="background:var(--uml-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17 8l4 4-4 4M7 8l-4 4 4 4" stroke="var(--uml)" stroke-width="2" stroke-linecap="round"/></svg></div><div class="act-inf"><div class="t">Umlagerung</div><div class="s">Coppi → Hamburg · 5 Stk</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill mov">→5</span><span class="act-time">Mo 09.06</span></div></div>
+      <div class="act-row"><div class="act-icon" style="background:var(--blue-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="act-inf"><div class="t">Wareneingang · Halle A</div><div class="s">ScubaPro · 12 Stk</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill in">+12</span><span class="act-time">heute 09:14</span></div></div>
+      <div class="act-row"><div class="act-icon" style="background:var(--bk-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="var(--bk)" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="var(--bk)" stroke-width="2" stroke-linecap="round"/></svg></div><div class="act-inf"><div class="t">Korrektur · Lager B</div><div class="s">Mares Flosse · Schwund</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill out">−2</span><span class="act-time">gestern</span></div></div>
+      <div class="act-row"><div class="act-icon" style="background:var(--uml-bg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17 8l4 4-4 4M7 8l-4 4 4 4" stroke="var(--uml)" stroke-width="2" stroke-linecap="round"/></svg></div><div class="act-inf"><div class="t">Umlagerung</div><div class="s">Halle A → Lager B · 5 Stk</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="pill mov">→5</span><span class="act-time">Mo 09.06</span></div></div>
     </div>
   </div>
-  <div class="tabbar"><div class="stripe" style="background:var(--acc)"></div>
+  <div class="tabbar" style="background:rgba(255,249,220,.97)">
+    <div class="stripe" style="background:var(--gold)"></div>
     <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg><span>Scannen</span></button>
+    <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="#94a3b8" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg><span>Warenkorb</span></button>
     <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#94a3b8" stroke-width="2"/><polyline points="12 6 12 12 16 14" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg><span>Verlauf</span></button>
-    <button class="tab on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="var(--acc)" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="var(--acc)" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="var(--acc)" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="var(--acc)" stroke-width="2" stroke-linecap="round"/></svg><span style="color:var(--acc);font-weight:700">Lager</span></button>
+    <button class="tab" style="position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#b8860b" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#b8860b" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#b8860b" stroke-width="2"/><path d="M14 17.5h7M17.5 14v7" stroke="#b8860b" stroke-width="2" stroke-linecap="round"/></svg><span style="color:var(--gold-dark);font-weight:700">Lager</span><div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold);border-radius:3px 3px 0 0"></div></button>
   </div>
 </div>
 
@@ -275,7 +283,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="steps">
     <div class="step">
       <div class="step-dot active" style="background:var(--blue)">1</div>
-      <span class="step-label" style="color:var(--blue)">Standort</span>
+      <span class="step-label" style="color:var(--blue)">Lagerplatz</span>
     </div>
     <div class="step-line"></div>
     <div class="step">
@@ -290,12 +298,12 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   </div>
   <div class="scroll">
     <div class="card" style="padding:14px">
-      <div class="flbl" style="margin-bottom:10px">Ziel-Standort</div>
-      <div class="standort-opt sel"><div class="s-dot" style="background:#1a3c6e"></div><span class="sname">Coppi</span><div class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#374151"></div><span class="sname">Zentrallager</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#166534"></div><span class="sname">Steglitz</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#7c2d12"></div><span class="sname">Freiburg</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#581c87"></div><span class="sname">Hamburg</span></div>
+      <div class="flbl" style="margin-bottom:6px">Messe-Lagerplatz</div>
+      <div style="font-size:11px;color:var(--mute);margin-bottom:10px">Lagerplätze werden vom Admin in den Einstellungen angelegt</div>
+      <div class="standort-opt sel"><div class="s-dot" style="background:#b8860b"></div><span class="sname">Halle A – Eingang</span><div class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#a16207"></div><span class="sname">Halle B – Mitte</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#78350f"></div><span class="sname">Lager B – Hinten</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#92400e"></div><span class="sname">Service-Bereich</span></div>
     </div>
     <div class="card" style="padding:14px">
       <div class="flbl">Lieferschein-Nr. <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
@@ -320,11 +328,11 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:10px;flex:1">
       <button class="back-btn" onclick="go('we-1')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#1b2733" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <div class="hdr-title"><h2>Wareneingang</h2><p>Coppi · LS-2025-04711</p></div>
+      <div class="hdr-title"><h2>Wareneingang</h2><p>Halle A – Eingang · LS-2025-04711</p></div>
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standort</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplatz</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot active" style="background:var(--blue)">2</div><span class="step-label" style="color:var(--blue)">Artikel</span></div>
     <div class="step-line"></div>
@@ -388,7 +396,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standort</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplatz</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Artikel</span></div>
     <div class="step-line done"></div>
@@ -397,7 +405,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="scroll">
     <div class="summary-box">
       <div class="summary-hdr">Übersicht Wareneingang</div>
-      <div class="summary-row"><span class="lbl">Standort</span><span class="val">Coppi</span></div>
+      <div class="summary-row"><span class="lbl">Lagerplatz</span><span class="val">Halle A – Eingang</span></div>
       <div class="summary-row"><span class="lbl">Lieferschein</span><span class="val">LS-2025-04711</span></div>
       <div class="summary-row"><span class="lbl">Datum</span><span class="val">16.06.2025</span></div>
       <div class="summary-row"><span class="lbl">Positionen</span><span class="val">3 Artikel</span></div>
@@ -444,7 +452,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot active" style="background:var(--inv)">1</div><span class="step-label" style="color:var(--inv)">Standort</span></div>
+    <div class="step"><div class="step-dot active" style="background:var(--inv)">1</div><span class="step-label" style="color:var(--inv)">Lagerplatz</span></div>
     <div class="step-line"></div>
     <div class="step"><div class="step-dot todo">2</div><span class="step-label" style="color:#94a3b8">Zählen</span></div>
     <div class="step-line"></div>
@@ -452,10 +460,12 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   </div>
   <div class="scroll">
     <div class="card" style="padding:14px">
-      <div class="flbl" style="margin-bottom:10px">Standort</div>
-      <div class="standort-opt sel" style="border-color:var(--inv);background:rgba(21,128,61,.05)"><div class="s-dot" style="background:#1a3c6e"></div><span class="sname">Coppi</span><div class="check" style="background:var(--inv)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#374151"></div><span class="sname">Zentrallager</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#166534"></div><span class="sname">Steglitz</span></div>
+      <div class="flbl" style="margin-bottom:6px">Messe-Lagerplatz</div>
+      <div style="font-size:11px;color:var(--mute);margin-bottom:10px">Inventur gilt immer nur für einen Lagerplatz</div>
+      <div class="standort-opt sel" style="border-color:var(--inv);background:rgba(21,128,61,.05)"><div class="s-dot" style="background:#b8860b"></div><span class="sname">Halle A – Eingang</span><div class="check" style="background:var(--inv)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#a16207"></div><span class="sname">Halle B – Mitte</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#78350f"></div><span class="sname">Lager B – Hinten</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#92400e"></div><span class="sname">Service-Bereich</span></div>
     </div>
     <div class="card" style="padding:14px">
       <div class="flbl" style="margin-bottom:10px">Kategorie <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
@@ -469,10 +479,10 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     </div>
     <div style="background:var(--inv-bg);border:1.5px solid var(--inv-border);border-radius:12px;padding:11px 13px;font-size:12px;color:#166534;display:flex;gap:8px;align-items:flex-start">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9" stroke="var(--inv)" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="var(--inv)" stroke-width="2" stroke-linecap="round"/></svg>
-      Es werden 847 Artikel für Coppi geladen. Du kannst jederzeit pausieren und später weitermachen.
+      Es werden 123 Artikel für Halle A – Eingang geladen. Du kannst jederzeit pausieren und später weitermachen.
     </div>
     <button class="btn-primary" style="background:var(--inv)" onclick="go('inv-2')">
-      Inventur starten → 847 Artikel
+      Inventur starten → 123 Artikel
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
@@ -485,12 +495,12 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:10px;flex:1">
       <button class="back-btn" onclick="go('inv-1')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#1b2733" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <div class="hdr-title"><h2>Inventur</h2><p>Coppi · 4 / 847 erfasst</p></div>
+      <div class="hdr-title"><h2>Inventur</h2><p>Halle A – Eingang · 4 / 123 erfasst</p></div>
     </div>
     <div style="background:var(--inv-bg);border-radius:8px;padding:4px 10px;border:1px solid var(--inv-border)"><span style="font-size:11px;font-weight:700;color:var(--inv)">0 % ▌</span></div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standort</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplatz</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot active" style="background:var(--inv)">2</div><span class="step-label" style="color:var(--inv)">Zählen</span></div>
     <div class="step-line"></div>
@@ -544,11 +554,11 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:10px;flex:1">
       <button class="back-btn" onclick="go('inv-2')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#1b2733" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <div class="hdr-title"><h2>Differenzen</h2><p>Inventur-Abschluss · Coppi</p></div>
+      <div class="hdr-title"><h2>Differenzen</h2><p>Inventur-Abschluss · Halle A</p></div>
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standort</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplatz</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Zählen</span></div>
     <div class="step-line done"></div>
@@ -557,8 +567,8 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="scroll">
     <div class="summary-box">
       <div class="summary-hdr">Zusammenfassung</div>
-      <div class="summary-row"><span class="lbl">Standort</span><span class="val">Coppi</span></div>
-      <div class="summary-row"><span class="lbl">Gezählt</span><span class="val">4 von 847 Artikeln</span></div>
+      <div class="summary-row"><span class="lbl">Lagerplatz</span><span class="val">Halle A – Eingang</span></div>
+      <div class="summary-row"><span class="lbl">Gezählt</span><span class="val">4 von 123 Artikeln</span></div>
       <div class="summary-row"><span class="lbl">Keine Differenz</span><span class="val" style="color:var(--green)">2 ✓</span></div>
       <div class="summary-row"><span class="lbl">Differenzen</span><span class="val" style="color:var(--red)">2 Artikel</span></div>
     </div>
@@ -616,7 +626,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div class="inf">
         <div class="nm">Mares Quattro+ Schwarz M</div>
         <div class="soll" style="display:flex;align-items:center;gap:6px;margin-top:4px">
-          <span class="s-badge" style="background:rgba(26,60,110,.08);color:var(--acc)"><div style="width:7px;height:7px;border-radius:50%;background:#1a3c6e;margin-right:2px"></div>Coppi: 5 Stk</span>
+          <span class="s-badge" style="background:rgba(26,60,110,.08);color:var(--acc)"><div style="width:7px;height:7px;border-radius:50%;background:#1a3c6e;margin-right:2px"></div>Messe-Lager: 5 Stk</span>
         </div>
       </div>
       <div style="background:var(--bk-bg);border:1.5px solid var(--bk-border);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--bk)">Wählen</div>
@@ -625,7 +635,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div class="thumb">🥽</div>
       <div class="inf">
         <div class="nm">Mares Quattro+ Blau M</div>
-        <div class="soll">Coppi: 4 Stk</div>
+        <div class="soll">Messe-Lager: 4 Stk</div>
       </div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
@@ -633,7 +643,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div class="thumb">🥽</div>
       <div class="inf">
         <div class="nm">Mares Quattro+ Schwarz L</div>
-        <div class="soll">Coppi: 3 Stk</div>
+        <div class="soll">Messe-Lager: 3 Stk</div>
       </div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chev"><path d="M9 18l6-6-6-6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
@@ -656,7 +666,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div style="font-size:40px">🥽</div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:800;color:var(--ink)">Mares Quattro+ Schwarz M</div>
-        <div style="font-size:11px;color:var(--mute);margin-top:3px">Coppi · Art.-Nr. 410331 01M</div>
+        <div style="font-size:11px;color:var(--mute);margin-top:3px">Messe-Lager · Art.-Nr. 410331 01M</div>
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
           <div style="background:var(--bk-bg);border:1.5px solid var(--bk-border);border-radius:9px;padding:5px 12px;text-align:center">
             <div style="font-size:10px;font-weight:700;color:var(--bk);text-transform:uppercase;letter-spacing:.3px">Aktuell</div>
@@ -718,7 +728,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot active" style="background:var(--uml)">1</div><span class="step-label" style="color:var(--uml)">Standorte</span></div>
+    <div class="step"><div class="step-dot active" style="background:var(--uml)">1</div><span class="step-label" style="color:var(--uml)">Lagerplätze</span></div>
     <div class="step-line"></div>
     <div class="step"><div class="step-dot todo">2</div><span class="step-label" style="color:#94a3b8">Artikel</span></div>
     <div class="step-line"></div>
@@ -726,10 +736,11 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   </div>
   <div class="scroll">
     <div class="card" style="padding:14px">
-      <div class="flbl" style="margin-bottom:10px">Von (Quelle)</div>
-      <div class="standort-opt sel" style="border-color:var(--uml);background:rgba(126,34,206,.04)"><div class="s-dot" style="background:#1a3c6e"></div><span class="sname">Coppi</span><div class="check" style="background:var(--uml)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#374151"></div><span class="sname">Zentrallager</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#166534"></div><span class="sname">Steglitz</span></div>
+      <div class="flbl" style="margin-bottom:6px">Von (Quelle)</div>
+      <div style="font-size:11px;color:var(--mute);margin-bottom:10px">Messe-Lagerplatz, aus dem umgelagert wird</div>
+      <div class="standort-opt sel" style="border-color:var(--uml);background:rgba(126,34,206,.04)"><div class="s-dot" style="background:#b8860b"></div><span class="sname">Halle A – Eingang</span><div class="check" style="background:var(--uml)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#a16207"></div><span class="sname">Halle B – Mitte</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#78350f"></div><span class="sname">Lager B – Hinten</span></div>
     </div>
     <div style="display:flex;justify-content:center;align-items:center;gap:8px;padding:2px 0">
       <div style="flex:1;height:1px;background:var(--border)"></div>
@@ -739,10 +750,11 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
     <div class="card" style="padding:14px">
-      <div class="flbl" style="margin-bottom:10px">Nach (Ziel)</div>
-      <div class="standort-opt"><div class="s-dot" style="background:#1a3c6e"></div><span class="sname">Coppi</span></div>
-      <div class="standort-opt"><div class="s-dot" style="background:#374151"></div><span class="sname">Zentrallager</span></div>
-      <div class="standort-opt sel" style="border-color:var(--uml);background:rgba(126,34,206,.04)"><div class="s-dot" style="background:#581c87"></div><span class="sname">Hamburg</span><div class="check" style="background:var(--uml)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
+      <div class="flbl" style="margin-bottom:6px">Nach (Ziel)</div>
+      <div style="font-size:11px;color:var(--mute);margin-bottom:10px">Ziel-Lagerplatz innerhalb der Messe</div>
+      <div class="standort-opt"><div class="s-dot" style="background:#b8860b"></div><span class="sname">Halle A – Eingang</span></div>
+      <div class="standort-opt"><div class="s-dot" style="background:#a16207"></div><span class="sname">Halle B – Mitte</span></div>
+      <div class="standort-opt sel" style="border-color:var(--uml);background:rgba(126,34,206,.04)"><div class="s-dot" style="background:#78350f"></div><span class="sname">Lager B – Hinten</span><div class="check" style="background:var(--uml)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div></div>
     </div>
     <button class="btn-primary" style="background:var(--uml)" onclick="go('uml-2')">
       Weiter → Artikel wählen
@@ -758,11 +770,11 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:10px;flex:1">
       <button class="back-btn" onclick="go('uml-1')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#1b2733" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <div class="hdr-title"><h2>Umlagerung</h2><p>Coppi → Hamburg</p></div>
+      <div class="hdr-title"><h2>Umlagerung</h2><p>Halle A → Lager B</p></div>
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standorte</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplätze</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot active" style="background:var(--uml)">2</div><span class="step-label" style="color:var(--uml)">Artikel</span></div>
     <div class="step-line"></div>
@@ -781,7 +793,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div class="thumb">🥽</div>
       <div class="inf">
         <div class="nm">Mares Quattro+ Schwarz L</div>
-        <div class="meta" style="color:var(--uml)">Coppi-Bestand: 9 Stk → max. 9</div>
+        <div class="meta" style="color:var(--uml)">Halle A – Bestand: 9 Stk → max. 9</div>
       </div>
       <div class="qty" style="background:var(--uml-bg);color:var(--uml);border:1px solid var(--uml-border)">×5</div>
       <button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/></svg></button>
@@ -790,7 +802,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div class="thumb">🌊</div>
       <div class="inf">
         <div class="nm">Waterproof W30 Shorty XL</div>
-        <div class="meta" style="color:var(--uml)">Coppi-Bestand: 12 Stk → max. 12</div>
+        <div class="meta" style="color:var(--uml)">Halle A – Bestand: 12 Stk → max. 12</div>
       </div>
       <div class="qty" style="background:var(--uml-bg);color:var(--uml);border:1px solid var(--uml-border)">×3</div>
       <button class="del-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/></svg></button>
@@ -813,7 +825,7 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
     </div>
   </div>
   <div class="steps">
-    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Standorte</span></div>
+    <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Lagerplätze</span></div>
     <div class="step-line done"></div>
     <div class="step"><div class="step-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></div><span class="step-label" style="color:var(--green)">Artikel</span></div>
     <div class="step-line done"></div>
@@ -821,9 +833,9 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
   </div>
   <div class="scroll">
     <div class="loc-arrow">
-      <div class="loc-box from"><div class="lbl2">Von</div><div class="loc-name">🔵 Coppi</div></div>
+      <div class="loc-box from"><div class="lbl2">Von</div><div class="loc-name">⭐ Halle A</div></div>
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" class="loc-arrow-icon"><path d="M5 12h14M13 6l6 6-6 6" stroke="var(--uml)" stroke-width="2.5" stroke-linecap="round"/></svg>
-      <div class="loc-box to"><div class="lbl2">Nach</div><div class="loc-name">🟣 Hamburg</div></div>
+      <div class="loc-box to"><div class="lbl2">Nach</div><div class="loc-name">⭐ Lager B</div></div>
     </div>
     <div class="summary-box">
       <div class="summary-hdr">Artikel</div>
@@ -845,12 +857,12 @@ h1{color:#9ca3af;font-size:12px;font-weight:700;letter-spacing:.8px;text-transfo
       <div style="font-size:11px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px">Bestand nach Umlagerung</div>
       <div style="display:flex;gap:8px">
         <div style="flex:1;background:#f8fafc;border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:10px;font-weight:700;color:var(--mute);margin-bottom:4px">Coppi</div>
+          <div style="font-size:10px;font-weight:700;color:var(--mute);margin-bottom:4px">Halle A – Eingang</div>
           <div style="font-size:13px;font-weight:700;color:var(--ink)">Flosse: 4 Stk</div>
           <div style="font-size:11px;color:var(--mute)">Shorty: 9 Stk</div>
         </div>
         <div style="flex:1;background:#faf5ff;border-radius:10px;padding:10px;text-align:center;border:1px solid var(--uml-border)">
-          <div style="font-size:10px;font-weight:700;color:var(--uml);margin-bottom:4px">Hamburg</div>
+          <div style="font-size:10px;font-weight:700;color:var(--uml);margin-bottom:4px">Lager B – Hinten</div>
           <div style="font-size:13px;font-weight:700;color:var(--ink)">Flosse: +5 Stk</div>
           <div style="font-size:11px;color:var(--mute)">Shorty: +3 Stk</div>
         </div>
