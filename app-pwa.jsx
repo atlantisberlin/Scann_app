@@ -1,6 +1,6 @@
 // Production app: full-screen scanner (no device frame), fixed theme,
 // live Google-Sheet data, status shown inside the Scannen header.
-/* global React, ReactDOM, ScannerC, AtlantisData */
+/* global React, ReactDOM, ScannerC, AtlantisData, MesseApp */
 const THEME = { accent: '#1a3c6e', dark: false, density: 'komfortabel', big: false };
 const ACCENT = '#1a3c6e';
 function Spinner() {
@@ -34,6 +34,7 @@ function Loading({ error, onRetry }) {
   );
 }
 function App() {
+  const [messeActive, setMesseActive] = React.useState(false);
   const [state, setState] = React.useState({ status: 'loading', products: null, meta: null, error: null });
   const refresh = React.useCallback(() => {
     setState((s) => ({ ...s, status: s.products ? 'ready' : 'loading', error: null }));
@@ -75,9 +76,16 @@ function App() {
   const m = state.meta;
   const stamp = m.at.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   const metaStr = `${m.live ? 'Live' : 'Beispieldaten'} · ${m.count.toLocaleString('de-DE')} Artikel · Stand ${stamp}`;
+  if (messeActive) {
+    return (
+      <FullScreen>
+        <MesseApp products={state.products} meta={metaStr} onExit={() => setMesseActive(false)} />
+      </FullScreen>
+    );
+  }
   return (
     <FullScreen>
-      <ScannerC tw={THEME} products={state.products} fit="screen" meta={metaStr} />
+      <ScannerC tw={THEME} products={state.products} fit="screen" meta={metaStr} onMessePress={() => setMesseActive(true)} />
     </FullScreen>
   );
 }
