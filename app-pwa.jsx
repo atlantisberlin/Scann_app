@@ -34,7 +34,7 @@ function Loading({ error, onRetry }) {
   );
 }
 function App() {
-  const [messeActive, setMesseActive] = React.useState(false);
+  const [messeActive, setMesseActive] = React.useState(() => !!MesseAuth.getSession());
   const [state, setState] = React.useState({ status: 'loading', products: null, meta: null, error: null });
   const refresh = React.useCallback(() => {
     setState((s) => ({ ...s, status: s.products ? 'ready' : 'loading', error: null }));
