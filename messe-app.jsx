@@ -932,12 +932,24 @@
 
   // ── Main MesseApp ──────────────────────────────────────────────
   function MesseApp({ products, meta, onExit }) {
-    const { useState } = React;
+    const { useState, useEffect } = React;
     const [session, setSession]           = useState(() => MesseAuth.getSession());
     const [tab, setTab]                   = useState('scan');
-    const [cart, setCart]                 = useState([]);
-    const [messeHistory, setMesseHistory] = useState([]);
+    const [cart, setCart]                 = useState(() => {
+      try { return JSON.parse(localStorage.getItem('messe_cart') || '[]'); } catch { return []; }
+    });
+    const [messeHistory, setMesseHistory] = useState(() => {
+      try { return JSON.parse(localStorage.getItem('messe_history') || '[]'); } catch { return []; }
+    });
     const [adminView, setAdminView]       = useState(null);
+
+    // Persist cart and scan history on every change
+    useEffect(() => {
+      try { localStorage.setItem('messe_cart', JSON.stringify(cart)); } catch {}
+    }, [cart]);
+    useEffect(() => {
+      try { localStorage.setItem('messe_history', JSON.stringify(messeHistory)); } catch {}
+    }, [messeHistory]);
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     const handleLogin = (sess) => setSession(sess);
