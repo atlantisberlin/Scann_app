@@ -560,41 +560,71 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
       </div>
 
       {/* ── Vollbild-Kamera-Overlay ── */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 15,
-        background: '#000',
-        display: camOverlay ? 'flex' : 'none',
-        flexDirection: 'column' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 15, background: '#000', display: camOverlay ? 'block' : 'none' }}>
 
-        {/* Echter Kamera-Stream */}
+        {/* Layer 1: Kamera-Stream — html5-qrcode darf hier nach Belieben machen */}
         <div id="scanner-cam" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
-        {/* Dunkle Ränder außerhalb des Scan-Bereichs werden von html5-qrcode gerendert */}
+        {/* Layer 2: UI-Controls — komplett unabhängig als eigene absolute Schicht */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', pointerEvents: 'none' }}>
 
-        {/* Oben: Torch + Flip */}
-        <div style={{ position: 'relative', zIndex: 2, paddingTop: screen ? 'calc(env(safe-area-inset-top,12px) + 12px)' : 52, paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={toggleTorch}
-            style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              background: torchOn ? 'rgba(255,220,0,0.35)' : 'rgba(255,255,255,0.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <path d="M9 2l-1 7H4l8 13 2-8h4L9 2z" stroke={torchOn ? '#ffe066' : '#fff'} fill={torchOn ? '#ffe066' : 'none'} strokeWidth="2" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: F(12), fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Scannen</span>
-          <button onClick={flipCamera}
-            style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <path d="M20 7h-3.17L15 5H9L7.17 7H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#fff" strokeWidth="2" strokeLinejoin="round"/>
-              <circle cx="12" cy="14" r="4" stroke="#fff" strokeWidth="2"/>
-              <path d="M10 11a2.5 2.5 0 015 0" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
+          {/* Oben: Torch + Flip */}
+          <div style={{ pointerEvents: 'auto', paddingTop: screen ? 'calc(env(safe-area-inset-top,12px) + 12px)' : 52,
+            paddingLeft: 20, paddingRight: 20, paddingBottom: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button onClick={toggleTorch}
+              style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                background: torchOn ? 'rgba(255,220,0,0.35)' : 'rgba(0,0,0,0.45)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <path d="M9 2l-1 7H4l8 13 2-8h4L9 2z" stroke={torchOn ? '#ffe066' : '#fff'} fill={torchOn ? '#ffe066' : 'none'} strokeWidth="2" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: F(12), fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Scannen</span>
+            <button onClick={flipCamera}
+              style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <path d="M20 7h-3.17L15 5H9L7.17 7H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#fff" strokeWidth="2" strokeLinejoin="round"/>
+                <circle cx="12" cy="14" r="4" stroke="#fff" strokeWidth="2"/>
+                <path d="M10 11a2.5 2.5 0 015 0" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Mitte: Platzhalter damit Bottom an den unteren Rand gedrückt wird */}
+          <div style={{ flex: 1 }} />
+
+          {/* Unten: manuelle Eingabe + Abbrechen */}
+          <div style={{ pointerEvents: 'auto', padding: '16px 20px',
+            paddingBottom: 'max(28px, calc(env(safe-area-inset-bottom, 16px) + 16px))',
+            display: 'flex', gap: 10, alignItems: 'center',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)',
+              backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '0 12px' }}>
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M11 17h2M3 8h18M5 12h6M5 16h3" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round"/></svg>
+              <input value={manual} onChange={(e) => setManual(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && manual.trim()) { handleCode(manual.trim()); setManual(''); } }}
+                placeholder="Art.-Nr. oder EAN manuell"
+                style={{ flex: 1, height: 44, border: 'none', outline: 'none', background: 'transparent', color: '#fff', fontSize: F(14), fontFamily: 'inherit' }} />
+              {manual.trim() && (
+                <button onClick={() => { handleCode(manual.trim()); setManual(''); }}
+                  style={{ border: 'none', background: `${standortAccent}cc`, borderRadius: 8, padding: '4px 10px', color: '#fff', fontSize: F(12), fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                  Suchen
+                </button>
+              )}
+            </div>
+            <button onClick={handleStopCamera}
+              style={{ flexShrink: 0, height: 44, padding: '0 16px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.3)',
+                background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: F(14), fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Abbrechen
+            </button>
+          </div>
         </div>
 
-        {/* Erfolgs-Flash */}
+        {/* Layer 3: Erfolgs-Flash */}
         {scanSuccess && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'rgba(0,60,20,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 11, background: 'rgba(0,60,20,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
             <div style={{ width: 64, height: 64, borderRadius: 32, background: 'rgba(55,210,126,0.2)', border: '2px solid #37d27e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width={32} height={32} viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#37d27e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
@@ -602,48 +632,23 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           </div>
         )}
 
-        {/* Nicht-gefunden Toast */}
+        {/* Layer 3: Nicht-gefunden Toast */}
         {notFound && !scanSuccess && (
-          <div style={{ position: 'absolute', bottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 90px)' : 98, left: 20, right: 20, zIndex: 3,
+          <div style={{ position: 'absolute', bottom: 'max(100px, calc(env(safe-area-inset-bottom,10px) + 90px))', left: 20, right: 20, zIndex: 11,
             background: 'rgba(200,16,46,0.9)', backdropFilter: 'blur(8px)', borderRadius: 12,
             padding: '10px 14px', color: '#fff', fontSize: F(13), fontWeight: 600, textAlign: 'center' }}>
             Kein Artikel zu „{notFound}" gefunden
           </div>
         )}
 
-        {/* Kamera-Fehler */}
+        {/* Layer 3: Kamera-Fehler */}
         {cam === 'error' && (
-          <div style={{ position: 'absolute', bottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 90px)' : 98, left: 20, right: 20, zIndex: 3,
+          <div style={{ position: 'absolute', bottom: 'max(100px, calc(env(safe-area-inset-bottom,10px) + 90px))', left: 20, right: 20, zIndex: 11,
             background: 'rgba(200,16,46,0.85)', borderRadius: 12, padding: '10px 14px',
             color: '#fff', fontSize: F(13), fontWeight: 600, textAlign: 'center' }}>
             {camMsg || 'Kein Kamerazugriff'}
           </div>
         )}
-
-        {/* Unten: manuelle Eingabe + Abbrechen */}
-        <div style={{ position: 'relative', zIndex: 2, marginTop: 'auto',
-          padding: '16px 20px', paddingBottom: 'max(28px, calc(env(safe-area-inset-bottom, 16px) + 16px))',
-          display: 'flex', gap: 10, alignItems: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)',
-            backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '0 12px' }}>
-            <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M11 17h2M3 8h18M5 12h6M5 16h3" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round"/></svg>
-            <input value={manual} onChange={(e) => setManual(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && manual.trim()) { handleCode(manual.trim()); setManual(''); } }}
-              placeholder="Art.-Nr. oder EAN manuell"
-              style={{ flex: 1, height: 44, border: 'none', outline: 'none', background: 'transparent', color: '#fff', fontSize: F(14), fontFamily: 'inherit' }} />
-            {manual.trim() && (
-              <button onClick={() => { handleCode(manual.trim()); setManual(''); }}
-                style={{ border: 'none', background: `${standortAccent}cc`, borderRadius: 8, padding: '4px 10px', color: '#fff', fontSize: F(12), fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                Suchen
-              </button>
-            )}
-          </div>
-          <button onClick={handleStopCamera}
-            style={{ flexShrink: 0, height: 44, padding: '0 16px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.3)',
-              background: 'rgba(255,255,255,0.10)', color: '#fff', fontSize: F(14), fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Abbrechen
-          </button>
-        </div>
       </div>
 
       {/* ── Suche-Overlay (über Scan-Tab) ── */}
