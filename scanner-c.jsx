@@ -112,7 +112,7 @@ function SwipeableHistoryRow({ h, onDelete, onOpen, T, F, standortAccent, fmtTim
   );
 }
 
-function ScannerC({ tw, products, fit = 'device', meta }) {
+function ScannerC({ tw, products, fit = 'device', meta, onMessePress = null }) {
   const { useState, useRef, useEffect, useMemo, useCallback } = React;
   const { EUR, stockState } = ATLANTIS;
   const PRODUCTS = products || ATLANTIS.PRODUCTS;
@@ -372,7 +372,17 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
         {sub && <div style={{ fontSize: F(13), color: T.mute, marginTop: 3 }}>{sub}</div>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 2 }}>
-        {right}<StandortBadge />
+        {right}
+        {onMessePress && (
+          <button onClick={onMessePress}
+            style={{ flexShrink:0, border:'none', cursor:'pointer', fontFamily:'inherit',
+              background:'rgba(218,165,32,.12)', borderRadius:20, padding:'5px 11px',
+              display:'flex', alignItems:'center', gap:5,
+              outline:'1.5px solid rgba(218,165,32,.35)' }}>
+            <span style={{ fontSize:F(12), fontWeight:700, color:'#8a6000' }}>⭐ Messe</span>
+          </button>
+        )}
+        <StandortBadge />
       </div>
     </div>
   );

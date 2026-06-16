@@ -155,9 +155,19 @@ function SiblingsNew({ siblings, currentEan, T, F, standort, standortAccent, STA
   );
 }
 
-function DetailView({ detail, onClose, onScanNext, goToAktionen, T, F, standort, standortAccent, STANDORTE, ALL_LOC_KEYS, slaveToMaster, productByArt, getSiblings, getStock, getTotalStock, padTopDet, padBotBtn }) {
+function DetailView({ detail, onClose, onScanNext, goToAktionen, T, F, standort, standortAccent, STANDORTE, ALL_LOC_KEYS, slaveToMaster, productByArt, getSiblings, getStock, getTotalStock, padTopDet, padBotBtn, messeMode = false, onAddToCart = null, messeStock = null }) {
   const { EUR, stockState } = ATLANTIS;
   const { Icon, ProductPhoto } = AUI;
+  const [messeQty, setMesseQty] = React.useState(1);
+  const [cartFeedback, setCartFeedback] = React.useState(false);
+
+  const handleAddToCart = () => {
+    if (onAddToCart) {
+      onAddToCart(detail, messeQty);
+      setCartFeedback(true);
+      setTimeout(() => setCartFeedback(false), 1200);
+    }
+  };
 
   const Tile      = ({ children }) => <div style={{ background: T.card, borderRadius: T.radius, padding: T.pad, border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>{children}</div>;
   const TileLabel = ({ icon, children }) => <div style={{ fontSize: F(11), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 5 }}>{icon(T.mute, 14)} {children}</div>;
@@ -257,14 +267,25 @@ function DetailView({ detail, onClose, onScanNext, goToAktionen, T, F, standort,
             )}
           </Tile>
           <Tile>
-            <TileLabel icon={Icon.box}>Bestand · {standort.label}</TileLabel>
-            <div style={{ fontSize: F(24), fontWeight: 800, color: T.stock[stockSt], marginTop: 6, lineHeight: 1 }}>
-              {stock}<span style={{ fontSize: F(13), fontWeight: 600, color: T.mute }}> Stk</span>
-            </div>
-            <div style={{ marginTop: 5, fontSize: F(11), color: T.mute }}>vor Ort · {stockTotal} gesamt</div>
-            <div style={{ marginTop: 7, height: 6, borderRadius: 6, background: T.dark ? 'rgba(255,255,255,0.1)' : '#e7ecf3', overflow: 'hidden' }}>
-              <div style={{ width: `${stockTotal ? Math.round((stock / stockTotal) * 100) : 0}%`, height: '100%', background: T.stock[stockSt], borderRadius: 6 }} />
-            </div>
+            {messeMode
+              ? (<>
+                  <TileLabel icon={Icon.box}>Messe-Lager</TileLabel>
+                  <div style={{ fontSize: F(24), fontWeight: 800, color: messeStock > 0 ? '#b8860b' : T.stock.out, marginTop: 6, lineHeight: 1 }}>
+                    {messeStock != null ? messeStock : '–'}<span style={{ fontSize: F(13), fontWeight: 600, color: T.mute }}> Stk</span>
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: F(11), color: T.mute }}>Messe-Bestand</div>
+                </>)
+              : (<>
+                  <TileLabel icon={Icon.box}>Bestand · {standort.label}</TileLabel>
+                  <div style={{ fontSize: F(24), fontWeight: 800, color: T.stock[stockSt], marginTop: 6, lineHeight: 1 }}>
+                    {stock}<span style={{ fontSize: F(13), fontWeight: 600, color: T.mute }}> Stk</span>
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: F(11), color: T.mute }}>vor Ort · {stockTotal} gesamt</div>
+                  <div style={{ marginTop: 7, height: 6, borderRadius: 6, background: T.dark ? 'rgba(255,255,255,0.1)' : '#e7ecf3', overflow: 'hidden' }}>
+                    <div style={{ width: `${stockTotal ? Math.round((stock / stockTotal) * 100) : 0}%`, height: '100%', background: T.stock[stockSt], borderRadius: 6 }} />
+                  </div>
+                </>)
+            }
           </Tile>
         </div>
 
@@ -322,22 +343,50 @@ function DetailView({ detail, onClose, onScanNext, goToAktionen, T, F, standort,
       </div>
 
       {/* Button-Leiste */}
-      <div style={{ paddingTop: 11, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: padBotBtn, background: T.bg, borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
-        {shopBtnUrl && (
-          <a href={shopBtnUrl} target="_blank" rel="noopener noreferrer"
-            style={{ flex: 1, height: 50, borderRadius: 14, border: `1.5px solid ${standortAccent}55`, background: `${standortAccent}0e`, color: standortAccent, fontSize: F(14), fontWeight: 800, textDecoration: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M15 3h6v6M10 14L21 3" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Onlineshop
-          </a>
-        )}
-        <button onClick={onScanNext}
-          style={{ flex: shopBtnUrl ? 1 : undefined, width: shopBtnUrl ? undefined : '100%', height: 50, borderRadius: 14, border: 'none', cursor: 'pointer', background: standortAccent, color: T.dark ? '#06131f' : '#fff', fontSize: F(16), fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
-          {Icon.scan(T.dark ? '#06131f' : '#fff', 20)} Nächsten Artikel scannen
-        </button>
-      </div>
+      {messeMode ? (
+        <div style={{ paddingTop: 11, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: padBotBtn, background: T.bg, borderTop: `1px solid ${T.border}`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+            {/* Qty stepper */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(218,165,32,.1)', borderRadius: 12, border: '1.5px solid rgba(218,165,32,.35)', overflow: 'hidden', flexShrink: 0 }}>
+              <button onClick={() => setMesseQty(q => Math.max(1, q - 1))}
+                style={{ width: 40, height: 46, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, color: '#8a6000', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+              <input type="number" min={1} value={messeQty}
+                onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setMesseQty(v); }}
+                style={{ width: 44, height: 46, border: 'none', background: 'transparent', textAlign: 'center', fontSize: F(16), fontWeight: 800, color: '#8a6000', fontFamily: 'inherit', outline: 'none' }} />
+              <button onClick={() => setMesseQty(q => q + 1)}
+                style={{ width: 40, height: 46, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, color: '#8a6000', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            </div>
+            <button onClick={handleAddToCart}
+              style={{ flex: 1, height: 50, borderRadius: 14, border: 'none', cursor: 'pointer', background: cartFeedback ? '#1f8a4c' : '#DAA520', color: '#fff', fontSize: F(15), fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', transition: 'background 0.2s' }}>
+              {cartFeedback
+                ? <><svg width={18} height={18} viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg> Hinzugefügt</>
+                : <>🛒 In den Warenkorb</>
+              }
+            </button>
+          </div>
+          <button onClick={onScanNext}
+            style={{ width: '100%', height: 44, borderRadius: 14, border: '1.5px solid rgba(218,165,32,.4)', cursor: 'pointer', background: 'transparent', color: '#8a6000', fontSize: F(14), fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
+            {Icon.scan('#8a6000', 18)} Weiter scannen
+          </button>
+        </div>
+      ) : (
+        <div style={{ paddingTop: 11, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: padBotBtn, background: T.bg, borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
+          {shopBtnUrl && (
+            <a href={shopBtnUrl} target="_blank" rel="noopener noreferrer"
+              style={{ flex: 1, height: 50, borderRadius: 14, border: `1.5px solid ${standortAccent}55`, background: `${standortAccent}0e`, color: standortAccent, fontSize: F(14), fontWeight: 800, textDecoration: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M15 3h6v6M10 14L21 3" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Onlineshop
+            </a>
+          )}
+          <button onClick={onScanNext}
+            style={{ flex: shopBtnUrl ? 1 : undefined, width: shopBtnUrl ? undefined : '100%', height: 50, borderRadius: 14, border: 'none', cursor: 'pointer', background: standortAccent, color: T.dark ? '#06131f' : '#fff', fontSize: F(16), fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
+            {Icon.scan(T.dark ? '#06131f' : '#fff', 20)} Nächsten Artikel scannen
+          </button>
+        </div>
+      )}
     </div>
   );
 }
