@@ -800,16 +800,71 @@
     const inputS = { width: '100%', height: 44, borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', padding: '0 12px', fontSize: 14, fontFamily: 'inherit', background: 'rgba(255,255,255,0.08)', color: '#f3f7fb', outline: 'none', marginBottom: 10 };
 
     if (adminView === 'users') {
+      const isSuperAdmin = (u) => u.username === 'erik.f' || u.superAdmin === true;
+      const isAdmin      = (u) => u.role === 'admin';
+      const callerIsSuper = isSuperAdmin(session);
+
+      // Who can delete whom?
+      const canDelete = (target) => {
+        if (isSuperAdmin(target)) return false;                            // Super-Admin never deletable
+        if (isAdmin(target) && !callerIsSuper) return false;              // only Super-Admin deletes Admins
+        return true;                                                        // Admins delete Mitarbeiter/Messe
+      };
+
+      const rolePill = (u) => {
+        if (isSuperAdmin(u)) return { label: '⬡ Super-Admin', bg: 'rgba(139,92,246,.25)', color: '#c4b5fd', border: 'rgba(139,92,246,.4)' };
+        if (isAdmin(u))      return { label: 'Admin',         bg: 'rgba(99,102,241,.2)',  color: '#a5b4fc', border: 'rgba(99,102,241,.35)' };
+        if (u.role === 'messe') return { label: 'Messe',      bg: GOLD_BG,               color: GOLD_DARK, border: GOLD_BORDER };
+        return                         { label: 'Mitarbeiter', bg: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.55)', border: 'rgba(255,255,255,.15)' };
+      };
+
+      const [addedMsg, setAddedMsg] = React.useState('');
+      const [importVal, setImportVal] = React.useState('');
+      const [showExport, setShowExport] = React.useState(false);
+      const [showImport, setShowImport] = React.useState(false);
+
+      const exportStr = () => {
+        // only export non-builtin users
+        const toExport = users.filter(u => !isSuperAdmin(u) || u.username !== 'erik.f');
+        return btoa(JSON.stringify(toExport));
+      };
+
+      const doImport = () => {
+        try {
+          const imported = JSON.parse(atob(importVal.trim()));
+          if (!Array.isArray(imported)) { alert('Ungültiger Code'); return; }
+          const current = MesseAuth.getUsers();
+          const merged = [...current];
+          imported.forEach(u => {
+            if (!merged.find(e => e.username === u.username)) merged.push(u);
+          });
+          MesseAuth.saveUsers(merged);
+          setUsers(MesseAuth.getUsers());
+          setImportVal('');
+          setShowImport(false);
+        } catch { alert('Ungültiger Code'); }
+      };
+
       const addUser = () => {
-        if (!newUser.vorname || !newUser.nachname || !newUser.username || !newUser.password) return;
+        if (!newUser.vorname || !newUser.nachname || !newUser.username || !newUser.password) {
+          setAddedMsg('Bitte alle Felder ausfüllen.');
+          return;
+        }
+        if (users.find(u => u.username === newUser.username)) {
+          setAddedMsg('Benutzername bereits vergeben.');
+          return;
+        }
         const initials = (newUser.vorname[0] + newUser.nachname[0]).toUpperCase();
         const u = { ...newUser, name: `${newUser.vorname} ${newUser.nachname}`, initials };
         const next = [...users, u];
         MesseAuth.saveUsers(next);
         setUsers(MesseAuth.getUsers());
         setNewUser({ vorname: '', nachname: '', username: '', password: '', role: 'messe' });
+        setAddedMsg(`✓ ${u.name} angelegt`);
+        setTimeout(() => setAddedMsg(''), 3000);
       };
       const delUser = (username) => {
+        if (!window.confirm(`Benutzer "${username}" wirklich löschen?`)) return;
         const next = users.filter(u => u.username !== username);
         MesseAuth.saveUsers(next);
         setUsers(MesseAuth.getUsers());
@@ -818,35 +873,84 @@
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e293b', color: '#f3f7fb' }}>
           <div style={{ padding: 'calc(env(safe-area-inset-top,12px) + 16px) 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={() => setAdminView('dash')} style={{ border: 'none', background: 'rgba(255,255,255,0.1)', borderRadius: 10, width: 36, height: 36, cursor: 'pointer', color: '#f3f7fb', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Benutzerverwaltung</div>
+            <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Benutzerverwaltung</div>
+            {callerIsSuper && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => { setShowImport(!showImport); setShowExport(false); }}
+                  style={{ border: 'none', background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#f3f7fb', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                  ↓ Import
+                </button>
+                <button onClick={() => { setShowExport(!showExport); setShowImport(false); }}
+                  style={{ border: 'none', background: 'rgba(218,165,32,.2)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: GOLD, fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                  ↑ Export
+                </button>
+              </div>
+            )}
           </div>
           <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
+
+            {/* Export panel */}
+            {showExport && (
+              <div style={{ background: 'rgba(218,165,32,.1)', border: '1px solid rgba(218,165,32,.3)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, marginBottom: 8 }}>SYNC-CODE — auf anderen Geräten importieren</div>
+                <textarea readOnly value={exportStr()} rows={3}
+                  style={{ width: '100%', background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: 10, color: '#f3f7fb', fontSize: 11, fontFamily: 'ui-monospace,monospace', resize: 'none' }}
+                  onClick={e => e.target.select()}
+                />
+                <button onClick={() => { navigator.clipboard?.writeText(exportStr()); }}
+                  style={{ marginTop: 8, width: '100%', height: 40, borderRadius: 10, border: 'none', background: GOLD, color: '#1b2733', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Code kopieren
+                </button>
+              </div>
+            )}
+
+            {/* Import panel */}
+            {showImport && (
+              <div style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.6)', marginBottom: 8 }}>SYNC-CODE EINFÜGEN</div>
+                <textarea value={importVal} onChange={e => setImportVal(e.target.value)} placeholder="Sync-Code hier einfügen…" rows={3}
+                  style={{ width: '100%', background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: 10, color: '#f3f7fb', fontSize: 11, fontFamily: 'ui-monospace,monospace', resize: 'none', outline: 'none' }}
+                />
+                <button onClick={doImport}
+                  style={{ marginTop: 8, width: '100%', height: 40, borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Benutzer importieren
+                </button>
+              </div>
+            )}
+
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Neuen Benutzer anlegen</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
-              <input value={newUser.vorname} onChange={e => setNewUser(p => ({ ...p, vorname: e.target.value }))} placeholder="Vorname" style={{ ...inputS, borderRadius: '10px 10px 0 0', gridColumn: '1' }} />
-              <input value={newUser.nachname} onChange={e => setNewUser(p => ({ ...p, nachname: e.target.value }))} placeholder="Nachname" style={{ ...inputS, borderRadius: '10px 10px 0 0', gridColumn: '2' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input value={newUser.vorname} onChange={e => setNewUser(p => ({ ...p, vorname: e.target.value }))} placeholder="Vorname" style={{ ...inputS, marginBottom: 0 }} />
+              <input value={newUser.nachname} onChange={e => setNewUser(p => ({ ...p, nachname: e.target.value }))} placeholder="Nachname" style={{ ...inputS, marginBottom: 0 }} />
             </div>
-            <input value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} placeholder="Benutzername" style={inputS} />
+            <div style={{ height: 10 }} />
+            <input value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} placeholder="Benutzername (z. B. max.m)" style={inputS} />
             <input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} placeholder="Passwort" style={inputS} />
             <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ ...inputS }}>
               <option value="messe">Messe</option>
               <option value="mitarbeiter">Mitarbeiter</option>
-              <option value="admin">Admin</option>
+              {callerIsSuper && <option value="admin">Admin</option>}
             </select>
-            <button onClick={addUser} style={{ width: '100%', height: 46, borderRadius: 12, border: 'none', background: GOLD, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>Anlegen</button>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Bestehende Benutzer</div>
-            {users.map(u => (
-              <div key={u.username} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <Avatar initials={u.initials} size={36} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{u.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>@{u.username} · {u.role}</div>
+            {addedMsg && <div style={{ fontSize: 13, color: addedMsg.startsWith('✓') ? '#86efac' : '#fca5a5', marginBottom: 8, fontWeight: 600 }}>{addedMsg}</div>}
+            <button onClick={addUser} style={{ width: '100%', height: 46, borderRadius: 12, border: 'none', background: GOLD, color: '#1b2733', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>Benutzer anlegen</button>
+
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Bestehende Benutzer ({users.length})</div>
+            {users.map(u => {
+              const pill = rolePill(u);
+              return (
+                <div key={u.username} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <Avatar initials={u.initials} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{u.name}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>@{u.username}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`, flexShrink: 0 }}>{pill.label}</span>
+                  {canDelete(u) && (
+                    <button onClick={() => delUser(u.username)} style={{ border: 'none', background: 'rgba(200,16,46,.3)', borderRadius: 8, color: '#ff8a8a', cursor: 'pointer', fontSize: 13, padding: '5px 11px', fontFamily: 'inherit', flexShrink: 0 }}>✕</button>
+                  )}
                 </div>
-                {u.role !== 'admin' && (
-                  <button onClick={() => delUser(u.username)} style={{ border: 'none', background: 'rgba(200,16,46,.3)', borderRadius: 8, color: '#ff8a8a', cursor: 'pointer', fontSize: 13, padding: '4px 10px', fontFamily: 'inherit' }}>Löschen</button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       );
