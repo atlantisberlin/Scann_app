@@ -41,6 +41,77 @@ function tokens({ accent: accentLight, dark = false, density = 'komfortabel', bi
   };
 }
 
+// ── Swipeable history row (defined outside ScannerC to prevent unmount on parent re-render) ──
+function SwipeableHistoryRow({ h, onDelete, onOpen, T, F, standortAccent, fmtTime, getStock }) {
+  const { useState, useRef } = React;
+  const { EUR, stockState } = ATLANTIS;
+  const { ProductPhoto, Icon } = AUI;
+  const [offsetX, setOffsetX] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const startX = useRef(null);
+  const startOffset = useRef(0);
+  const DELETE_W = 76;
+
+  const p = h.p;
+  if (p.isMaster) return null;
+
+  const stock = getStock(p);
+  const st = stockState(stock);
+  const onSale = p.sale != null && p.sale > p.price;
+
+  const handleTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+    startOffset.current = offsetX;
+    setAnimating(false);
+  };
+  const handleTouchMove = (e) => {
+    if (startX.current === null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const next = startOffset.current + dx;
+    setOffsetX(Math.max(-DELETE_W, Math.min(0, next)));
+  };
+  const handleTouchEnd = () => {
+    startX.current = null;
+    setAnimating(true);
+    if (offsetX < -DELETE_W * 0.35) setOffsetX(-DELETE_W);
+    else setOffsetX(0);
+  };
+
+  return (
+    <div style={{ position: 'relative', borderRadius: T.radius, overflow: 'hidden' }}>
+      {/* Delete button behind */}
+      <div onClick={onDelete}
+        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: DELETE_W,
+          background: '#c8102e', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: `0 ${T.radius}px ${T.radius}px 0`, cursor: 'pointer' }}>
+        <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M10 11v6M14 11v6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </div>
+      {/* Swipeable row */}
+      <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+        style={{ transform: `translateX(${offsetX}px)`, transition: animating ? 'transform 0.2s ease' : 'none', position: 'relative', zIndex: 1 }}>
+        <button onClick={onOpen} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: T.card,
+          border: `1px solid ${T.border}`, borderRadius: T.radius, padding: T.pad - 2, display: 'flex', gap: 12,
+          alignItems: 'center', boxShadow: T.tileShadow, fontFamily: 'inherit' }}>
+          <ProductPhoto product={p} dark={T.dark} radius={10} style={{ width: F(52), height: F(52), flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: F(11), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5 }}>{p.brand} · {fmtTime(h.at)}</div>
+            <div style={{ fontSize: F(14), fontWeight: 700, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+              <span style={{ fontSize: F(14), fontWeight: 800, color: onSale ? T.red : standortAccent }}>{p.noPrice ? '– Preis folgt' : EUR(p.price)}</span>
+              <span style={{ width: 7, height: 7, borderRadius: 7, background: T.stock[st], display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ fontSize: F(12), color: T.mute }}>{stock} Stk</span>
+            </div>
+          </div>
+          {Icon.chevron(T.mute, 20)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ScannerC({ tw, products, fit = 'device', meta }) {
   const { useState, useRef, useEffect, useMemo, useCallback } = React;
   const { EUR, stockState } = ATLANTIS;
@@ -551,8 +622,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
 
         {/* Unten: manuelle Eingabe + Abbrechen */}
         <div style={{ position: 'relative', zIndex: 2, marginTop: 'auto',
-          padding: `12px 20px`, paddingBottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 14px)' : 28,
-          display: 'flex', gap: 10, alignItems: 'center' }}>
+          padding: '16px 20px', paddingBottom: 'max(28px, calc(env(safe-area-inset-bottom, 16px) + 16px))',
+          display: 'flex', gap: 10, alignItems: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)',
             backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '0 12px' }}>
             <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M11 17h2M3 8h18M5 12h6M5 16h3" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -586,26 +657,30 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
         <div style={{ background: T.headerBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
           paddingTop: padTopHdr, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: 10,
           borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-            background: T.field, borderRadius: 12, padding: filterAktion ? '8px 14px' : '10px 14px',
-            border: filterAktion ? `1.5px solid #DAA520` : `1.5px solid ${standortAccent}`,
-            boxShadow: `0 0 0 3px ${standortAccent}18` }}>
-            {Icon.search(standortAccent, 18)}
-            {filterAktion && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
-                color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13), fontWeight: 700, flexShrink: 0 }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                Aktionen
-                <span onClick={() => setFilterAktion(false)} style={{ fontSize: 16, lineHeight: 1, opacity: 0.6, marginLeft: 1, cursor: 'pointer' }}>×</span>
-              </span>
-            )}
-            <input autoFocus={searchActive} value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder={filterAktion ? 'Suche verfeinern…' : 'Name, Marke, EAN oder Art.-Nr.'}
-              style={{ border: 'none', outline: 'none', flex: 1, fontSize: F(15), color: T.ink, background: 'transparent', fontFamily: 'inherit' }} />
-            {(q || activeFilters > 0)
-              ? <button onClick={() => { setQ(''); setFilterBrand(null); setFilterCat(null); setFilterAktion(false); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>{Icon.close(T.mute, 18)}</button>
-              : null}
-            <button onClick={closeSearch} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 4px', fontSize: F(14), fontWeight: 600, color: standortAccent, fontFamily: 'inherit', flexShrink: 0 }}>Abbrechen</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Input-Feld */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
+              background: T.field, borderRadius: 12, padding: filterAktion ? '8px 12px' : '10px 12px',
+              border: filterAktion ? `1.5px solid #DAA520` : `1.5px solid ${standortAccent}`,
+              boxShadow: `0 0 0 3px ${standortAccent}18` }}>
+              {Icon.search(standortAccent, 18)}
+              {filterAktion && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
+                  color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13), fontWeight: 700, flexShrink: 0 }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  Aktionen
+                  <span onClick={() => setFilterAktion(false)} style={{ fontSize: 16, lineHeight: 1, opacity: 0.6, marginLeft: 1, cursor: 'pointer' }}>×</span>
+                </span>
+              )}
+              <input autoFocus={searchActive} value={q} onChange={(e) => setQ(e.target.value)}
+                placeholder={filterAktion ? 'Suche verfeinern…' : 'Name, Marke, EAN…'}
+                style={{ border: 'none', outline: 'none', flex: 1, minWidth: 0, fontSize: F(15), color: T.ink, background: 'transparent', fontFamily: 'inherit' }} />
+              {(q || activeFilters > 0) && (
+                <button onClick={() => { setQ(''); setFilterBrand(null); setFilterCat(null); setFilterAktion(false); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}>{Icon.close(T.mute, 18)}</button>
+              )}
+            </div>
+            {/* Abbrechen außerhalb des Feldes */}
+            <button onClick={closeSearch} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 2px', fontSize: F(14), fontWeight: 600, color: standortAccent, fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}>Abbrechen</button>
           </div>
         </div>
 
@@ -675,7 +750,15 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
       <Header title="Verlauf" sub={history.length ? `${history.length} Artikel gescannt` : 'Noch nichts gescannt'}
         right={history.length ? <button onClick={() => setHistory([])} style={{ border: 'none', background: 'none', color: standortAccent, fontSize: F(14), fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', paddingBottom: 2 }}>Leeren</button> : null} />
       <div style={{ flex: 1, overflow: 'auto', padding: T.pad, display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
-        {history.length ? history.map((h) => <ListRow key={h.p.ean || h.p.id} p={h.p} time={fmtTime(h.at)} />) : (
+        {history.length ? history.map((h) => (
+          <SwipeableHistoryRow
+            key={h.p.ean || h.p.id}
+            h={h}
+            onDelete={() => setHistory((prev) => prev.filter((x) => x.p.ean !== h.p.ean))}
+            onOpen={() => open(h.p)}
+            T={T} F={F} standortAccent={standortAccent} fmtTime={fmtTime} getStock={getStock}
+          />
+        )) : (
           <div style={{ textAlign: 'center', color: T.mute, marginTop: 60 }}>
             <div style={{ display: 'inline-flex', opacity: 0.4 }}>{Icon.history(T.mute, 44)}</div>
             <div style={{ marginTop: 12, fontSize: F(14) }}>Gescannte Artikel erscheinen hier</div>
@@ -722,7 +805,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           <DetailView
             detail={detail}
             onClose={() => setDetail(null)}
-            onScanNext={() => { setDetail(null); setTab('scan'); }}
+            onScanNext={() => { setDetail(null); setTab('scan'); setCamOverlay(true); }}
             goToAktionen={goToAktionen}
             T={T} F={F}
             standort={standort} standortAccent={standortAccent}
