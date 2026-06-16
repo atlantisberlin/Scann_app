@@ -1,8 +1,8 @@
 // Atlantis Scanner — Direction C "Regal", theme-aware.
-// Tab bar (Scannen / Suche / Verlauf) + data-dense detail.
+// Tab bar (Scannen / Suche / Verlauf / Anleitung) + data-dense detail.
 // Jedes Produkt-Objekt ist eine einzelne Sheet-Zeile (kein Gruppieren mehr).
 // Geschwister-Artikel werden live über masterArt / slaveArts nachgeschlagen.
-/* global React, ATLANTIS, AUI */
+/* global React, ATLANTIS, AUI, DetailView, InfoTab */
 
 const ACCENTS = {
   navy:    { light: '#1a3c6e', dark: '#6ea4ea', label: 'Atlantis Navy' },
@@ -66,9 +66,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     catch { return []; }
   });
 
-
-
-
   const standortAccent = T.dark ? standort.accentDark : standort.accent;
 
   // ── Bestandshelfer ────────────────────────────────────────────
@@ -78,7 +75,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     : (p.stockTotal ?? p.stock ?? 0);
 
   // ── Produkt-Indizes ───────────────────────────────────────────
-  // EAN / Art.-Nr. → Produkt
   const codeIndex = useMemo(() => {
     const ei = {}, ai = {};
     (PRODUCTS || []).forEach((p) => {
@@ -90,16 +86,12 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     return { ei, ai };
   }, [PRODUCTS]);
 
-  // Art.-Nr. → Produkt (für Geschwister-Lookup)
   const productByArt = useMemo(() => {
     const m = {};
-    (PRODUCTS || []).forEach((p) => {
-      if (p.art) m[String(p.art).trim().toLowerCase()] = p;
-    });
+    (PRODUCTS || []).forEach((p) => { if (p.art) m[String(p.art).trim().toLowerCase()] = p; });
     return m;
   }, [PRODUCTS]);
 
-  // SlaveArt → Master-Produkt
   const slaveToMaster = useMemo(() => {
     const m = {};
     (PRODUCTS || []).forEach((p) => {
@@ -109,7 +101,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     return m;
   }, [PRODUCTS]);
 
-  // Alle Slaves eines Masters
   const getSiblings = useCallback((masterProduct) => {
     if (!masterProduct || !masterProduct.isMaster) return [];
     return (masterProduct.slaveArts || [])
@@ -251,7 +242,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     const stock = getStock(p);
     const st    = stockState(stock);
     const onSale = p.sale != null && p.sale > p.price;
-    if (p.isMaster) return null; // Master-Zeilen nicht in Listen anzeigen
+    if (p.isMaster) return null;
     return (
       <button onClick={() => open(p)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: T.card,
         border: `1px solid ${T.border}`, borderRadius: T.radius, padding: T.pad - 2, display: 'flex', gap: 12,
@@ -274,581 +265,14 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     );
   };
 
-  // ── StandortChips: Bestand-Chips für alle Standorte ───────────
-  // hasLocs=false → Variante B: aktueller Standort zeigt stock, andere ausgegraut mit "–"
-  const StandortChips = ({ locs, stockFallback = 0, darkBg = false }) => {
-    const hasLocs = !!locs;
-    const labelCol = darkBg ? 'rgba(255,255,255,0.75)' : (home2) => home2 ? standortAccent : T.mute;
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 4 }}>
-        {ALL_LOC_KEYS.map((locKey) => {
-          const sd   = STANDORTE.find((s) => s.key === locKey) || { key: locKey, label: locKey };
-          const home = locKey === standort.key;
-          const n    = hasLocs ? (locs[locKey] ?? 0) : (home ? stockFallback : null);
-          const noData = !hasLocs && !home;
-          const numCol = darkBg
-            ? (noData ? 'rgba(255,255,255,0.35)' : n === 0 ? '#ff8a8a' : n <= 2 ? '#ffd080' : '#6ee7a0')
-            : (noData ? T.mute : n === 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok);
-          const lc = darkBg ? 'rgba(255,255,255,0.75)' : (home ? standortAccent : T.mute);
-          const subCol = darkBg ? 'rgba(255,255,255,0.5)' : (home ? standortAccent : T.mute);
-          return (
-            <div key={locKey} style={{
-              background: darkBg
-                ? (home ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)')
-                : (home ? (T.dark ? `${standortAccent}28` : `${standortAccent}14`) : (T.dark ? 'rgba(255,255,255,0.06)' : 'var(--color-background-secondary)')),
-              borderRadius: 6,
-              border: darkBg
-                ? (home ? '1.5px solid rgba(255,255,255,0.7)' : '0.5px solid rgba(255,255,255,0.2)')
-                : (home ? `1.5px solid ${standortAccent}` : `0.5px solid ${T.border}`),
-              padding: '4px 2px', textAlign: 'center',
-              opacity: noData ? 0.45 : 1,
-            }}>
-              <div style={{ fontSize: 9, color: lc, fontWeight: home ? 500 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sd.shortLabel}</div>
-              <div style={{ fontSize: 15, fontWeight: 500, color: noData ? subCol : numCol, lineHeight: 1.2, marginTop: 1 }}>{noData ? '–' : n}</div>
-              <div style={{ fontSize: 9, color: subCol, marginTop: 0 }}>{noData ? 'n/a' : 'Stk'}</div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // ── CopyBtn: kleiner Kopier-Button ────────────────────────────
-  const CopyBtn = ({ text }) => {
-    const [copied, setCopied] = React.useState(false);
-    const copy = (e) => {
-      e.stopPropagation();
-      const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(() => {
-          const ta = document.createElement('textarea');
-          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-          document.body.appendChild(ta); ta.select();
-          try { document.execCommand('copy'); } catch (_) {}
-          document.body.removeChild(ta); done();
-        });
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); } catch (_) {}
-        document.body.removeChild(ta); done();
-      }
-    };
-    return (
-      <button onClick={copy} title="Kopieren" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '1px 3px', color: copied ? T.stock.ok : T.mute, lineHeight: 1, flexShrink: 0 }}>
-        {copied
-          ? <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          : <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="2"/></svg>
-        }
-      </button>
-    );
-  };
-
-  // ── SiblingsNew: neues Layout ohne Accordion ──────────────────
-  // Gescannter Artikel: blauer Kasten oben (nur Chips, kein Art.-Nr./Shop-Link)
-  // Alle anderen Slaves: aufgeklappt mit Bild, Art.-Nr., Shop-Link, Chips
-  function SiblingsNew({ siblings, currentEan, T, F }) {
-    if (!siblings || siblings.length === 0) return null;
-
-    // Namen-Parser (Farbe + Größe) — gleiche Logik wie vorher
-    const parseAttrs = (name) => {
-      const colorColon = (name.match(/Farbe\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
-      const sizeColon  = (name.match(/Gr(?:ö|oe|o)(?:ß|ss|s)e\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
-      if (colorColon || sizeColon) return { color: (colorColon || '').trim() || null, size: (sizeColon || '').trim() || null };
-      const parts = name.split(/\s+-\s+/);
-      if (parts.length >= 2) {
-        const last = parts[parts.length - 1].trim();
-        const prev = parts[parts.length - 2].trim();
-        const sizeMatch = last.match(/^Gr\.?\s*(.+)/i);
-        if (sizeMatch) return { color: prev, size: sizeMatch[1].trim() };
-        if (/^(XS|S|M|L|XL|XXL|\d[\d/,.\-–]+)$/i.test(last)) return { color: prev, size: last };
-        return { color: last, size: null };
-      }
-      return { color: null, size: null };
-    };
-
-    const currentSlave = siblings.find((sp) => sp.ean === currentEan) || null;
-    const otherSlaves  = siblings.filter((sp) => sp.ean !== currentEan);
-
-    const SlaveCard = ({ sp }) => {
-      const { color, size } = parseAttrs(sp.name);
-      const label    = [color, size].filter(Boolean).join(' · ') || sp.name;
-      const onSale   = sp.sale != null && sp.sale > sp.price;
-      const hasLocs  = !!sp.locs;
-      const stock    = hasLocs ? (sp.locs[standort.key] ?? 0) : (sp.stock ?? 0);
-      const shopUrl  = sp.shopUrl || null;
-      return (
-        <div style={{ padding: `${F(10)}px ${F(12)}px`, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <AUI.ProductPhoto product={sp} dark={T.dark} radius={8} style={{ width: F(48), height: F(48), flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-              <span style={{ fontSize: F(13), fontWeight: 500, color: T.ink }}>{label}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                {sp.price > 0 && <span style={{ fontSize: F(12), fontWeight: 500, color: onSale ? T.red : standortAccent }}>{EUR(sp.price)}</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: sp.aktionsangebote?.[standort.key] ? 4 : 7 }}>
-              <span style={{ fontSize: F(10), color: T.mute, fontFamily: 'ui-monospace,Menlo,monospace' }}>{sp.art}</span>
-              <CopyBtn text={sp.art} />
-              {shopUrl && (
-                <a href={shopUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ marginLeft: 'auto', fontSize: F(11), color: standortAccent, fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Shop
-                </a>
-              )}
-            </div>
-            {sp.aktionsangebote?.[standort.key] && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7, background: '#DAA52018', border: '0.5px solid #DAA52066', borderRadius: 5, padding: '3px 7px' }}>
-                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#854F0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#854F0B" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: F(11), color: '#633806', fontWeight: 500 }}>{sp.aktionsangebote?.[standort.key]}</span>
-              </div>
-            )}
-            <StandortChips locs={sp.locs} stockFallback={stock} />
-          </div>
-        </div>
-      );
-    };
-
-    // Gescannter Artikel — Label + Chips, ohne Art.-Nr./Shop (steht oben)
-    const currentAttrs = currentSlave ? parseAttrs(currentSlave.name) : null;
-    const currentLabel = currentAttrs ? [currentAttrs.color, currentAttrs.size].filter(Boolean).join(' · ') : '';
-
-    return (
-      <div style={{ marginTop: T.gap }}>
-        {currentSlave && (
-          <div style={{ background: standortAccent, borderRadius: T.radius, padding: `${F(10)}px ${F(12)}px`, marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <span style={{ fontSize: 9, fontWeight: 500, color: T.dark ? standortAccent : '#fff', background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gescannt</span>
-              <span style={{ fontSize: F(13), fontWeight: 500, color: '#fff' }}>{currentLabel}</span>
-            </div>
-            <StandortChips locs={currentSlave.locs} stockFallback={currentSlave.stock ?? 0} darkBg={true} />
-          </div>
-        )}
-
-        {otherSlaves.length > 0 && (
-          <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.border}`, boxShadow: T.tileShadow, overflow: 'hidden' }}>
-            <div style={{ fontSize: F(10), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 5, padding: `${F(8)}px ${F(12)}px`, borderBottom: `1px solid ${T.border}`, background: T.dark ? 'rgba(255,255,255,0.03)' : '#f7f9fc' }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/><path d="M3 7l9 4 9-4M12 11v10" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/></svg>
-              Weitere Ausführungen
-            </div>
-            {otherSlaves.map((sp) => <SlaveCard key={sp.ean || sp.art} sp={sp} />)}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Geschwister-Accordion (ALT — wird nicht mehr verwendet) ───
-  function SiblingsAccordion({ siblings, currentEan, T, F }) {
-    if (!siblings || siblings.length === 0) return null;
-    const stockColor = (n) => n <= 0 ? T.stock.out : n <= 2 ? T.stock.low : T.stock.ok;
-
-    // Farbe und Größe aus dem Produktnamen extrahieren
-    const parseAttrs = (name) => {
-      // Doppelpunkt-Format: "Farbe: Orange-Black/Grey" / "Größe: S"
-      const colorColon = (name.match(/Farbe\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
-      const sizeColon  = (name.match(/Gr(?:ö|oe|o)(?:ß|ss|s)e\s*:\s*([^-–·]+?)(?:\s*[-–·]|$)/i) || [])[1];
-      if (colorColon || sizeColon) {
-        return { color: (colorColon || '').trim() || null, size: (sizeColon || '').trim() || null };
-      }
-      // Bindestrich-Format: letztes Segment nach " - Gr. " ist die Größe,
-      // vorletztes Segment ist die Farbe
-      const parts = name.split(/\s+-\s+/);
-      if (parts.length >= 2) {
-        const last = parts[parts.length - 1].trim();
-        const prev = parts[parts.length - 2].trim();
-        const sizeMatch = last.match(/^Gr\.?\s*(.+)/i);
-        if (sizeMatch) return { color: prev, size: sizeMatch[1].trim() };
-        // Kein "Gr." — letztes Segment könnte Größe sein (z.B. "S", "M", "L", "39/40")
-        if (/^(XS|S|M|L|XL|XXL|\d[\d/,.\-–]+)$/i.test(last)) {
-          return { color: prev, size: last };
-        }
-        // Nur eine Variante (z.B. nur Farbe, keine Größe)
-        return { color: last, size: null };
-      }
-      return { color: null, size: null };
-    };
-
-    // Größen numerisch sortieren: "39/40" → 39, "S/M" → Buchstaben ans Ende
-    const sizeOrder = (s) => {
-      if (!s) return 9999;
-      const sizeMap = { XS: 1, S: 2, M: 3, L: 4, XL: 5, XXL: 6, XXXL: 7 };
-      const upper = s.toUpperCase().trim();
-      if (sizeMap[upper]) return sizeMap[upper];
-      const n = parseFloat(String(s).replace(',', '.'));
-      return Number.isFinite(n) ? n : 9998;
-    };
-
-    // Gruppieren nach Farbe, innerhalb nach Größe sortieren
-    const grouped = React.useMemo(() => {
-      const map = {};
-      siblings.forEach((sp) => {
-        const { color, size } = parseAttrs(sp.name);
-        const key = color || '—';
-        if (!map[key]) map[key] = [];
-        map[key].push({ sp, size });
-      });
-      // Innerhalb jeder Farbe nach Größe sortieren
-      Object.values(map).forEach((items) => {
-        items.sort((a, b) => sizeOrder(a.size) - sizeOrder(b.size));
-      });
-      return map;
-    }, [siblings]);
-
-    const groupKeys   = Object.keys(grouped);
-    const multiGroup  = groupKeys.length > 1;
-
-    // Finde die Farb-Gruppe des aktuell gescannten Artikels
-    const currentGroup = React.useMemo(() => {
-      if (!currentEan) return null;
-      return groupKeys.find((gk) => grouped[gk].some((x) => x.sp.ean === currentEan)) || null;
-    }, [currentEan, grouped, groupKeys]);
-
-    const [openGroups, setOpenGroups] = React.useState(() => {
-      const init = {};
-      if (currentGroup) init[currentGroup] = true;
-      else if (groupKeys.length === 1) init[groupKeys[0]] = true;
-      return init;
-    });
-    const [openEans, setOpenEans] = React.useState(() =>
-      currentEan ? { [currentEan]: true } : {}
-    );
-    const toggleGroup = (key) => setOpenGroups((o) => ({ ...o, [key]: !o[key] }));
-    const toggleEan   = (ean) => setOpenEans((o) => ({ ...o, [ean]: !o[ean] }));
-
-    // Bestandssumme für eine Farbgruppe
-    const groupStock = (items) => items.reduce((sum, { sp }) =>
-      sum + (sp.locs ? (sp.locs[standort.key] ?? 0) : (sp.stock ?? 0)), 0);
-    const groupTotal = (items) => items.reduce((sum, { sp }) =>
-      sum + (sp.locs ? ALL_LOC_KEYS.reduce((s, k) => s + (sp.locs[k] ?? 0), 0) : (sp.stockTotal ?? 0)), 0);
-
-    const SizeRow = ({ sp, size }) => {
-      const isCurrent = sp.ean === currentEan;
-      const stock     = sp.locs ? (sp.locs[standort.key] ?? 0) : (sp.stock ?? 0);
-      const total     = sp.locs ? ALL_LOC_KEYS.reduce((s, k) => s + (sp.locs[k] ?? 0), 0) : (sp.stockTotal ?? 0);
-      const isOpen    = openEans[sp.ean];
-      const hasLocs   = !!sp.locs;
-      const onSale    = sp.sale != null && sp.sale > sp.price;
-      const locMax    = hasLocs ? Math.max(1, ...ALL_LOC_KEYS.map((k) => sp.locs[k] ?? 0)) : 1;
-      const label     = size || sp.name;
-
-      return (
-        <div>
-          <button onClick={() => hasLocs && toggleEan(sp.ean)}
-            style={{ width: '100%', textAlign: 'left', border: 'none', fontFamily: 'inherit',
-              cursor: hasLocs ? 'pointer' : 'default', padding: `${F(9)}px ${F(14)}px`,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-              background: isCurrent ? (T.dark ? `${standortAccent}1a` : `${standortAccent}0d`) : 'transparent',
-              borderLeft: isCurrent ? `3px solid ${standortAccent}` : '3px solid transparent',
-              borderTop: `1px solid ${T.border}` }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {isCurrent && <span style={{ fontSize: F(9), fontWeight: 700, color: standortAccent, background: `${standortAccent}18`, border: `1px solid ${standortAccent}44`, padding: '1px 5px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.4, marginRight: 6 }}>gescannt</span>}
-              <span style={{ fontSize: F(13), fontWeight: isCurrent ? 700 : 500, color: T.ink }}>{label}</span>
-              {sp.art && <span style={{ display: 'block', fontSize: F(10), color: T.mute, fontFamily: 'ui-monospace, Menlo, monospace', marginTop: 1 }}>{sp.art}</span>}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {sp.price > 0 && <span style={{ fontSize: F(12), fontWeight: 700, color: onSale ? T.red : standortAccent, whiteSpace: 'nowrap' }}>{EUR(sp.price)}</span>}
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: F(14), fontWeight: 700, color: stockColor(stock), lineHeight: 1 }}>{stock} <span style={{ fontSize: F(10), fontWeight: 500, color: T.mute }}>{standort.shortLabel}</span></div>
-                {total !== stock && <div style={{ fontSize: F(10), color: T.mute, marginTop: 1 }}>{total} ges.</div>}
-              </div>
-              {hasLocs && <svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s', opacity: 0.5 }}><path d="M6 9l6 6 6-6" stroke={T.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            </div>
-          </button>
-          {isOpen && hasLocs && (
-            <div style={{ background: T.dark ? 'rgba(255,255,255,0.03)' : '#f7f9fc', borderTop: `1px solid ${T.border}`, padding: `${F(7)}px ${F(14)}px ${F(7)}px ${F(28)}px` }}>
-              {ALL_LOC_KEYS.map((locKey) => {
-                const sd   = STANDORTE.find((s) => s.key === locKey) || { key: locKey, label: locKey };
-                const n    = sp.locs[locKey] ?? 0;
-                const pct  = Math.round((n / locMax) * 100);
-                const home = locKey === standort.key;
-                return (
-                  <div key={locKey} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ width: F(74), flexShrink: 0, fontSize: F(11), fontWeight: home ? 700 : 400, color: home ? standortAccent : T.mute }}>
-                      {sd.label}
-                      {home && <span style={{ marginLeft: 4, fontSize: F(8), fontWeight: 700, color: standortAccent, background: `${standortAccent}18`, padding: '1px 4px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>hier</span>}
-                    </span>
-                    <div style={{ flex: 1, height: 5, borderRadius: 5, background: T.dark ? 'rgba(255,255,255,0.08)' : '#dde4ee', overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: n === 0 ? 'transparent' : home ? standortAccent : (T.dark ? 'rgba(231,239,247,0.35)' : '#9fb0c6') }} />
-                    </div>
-                    <span style={{ width: F(22), textAlign: 'right', fontSize: F(12), fontWeight: 700, color: n ? T.ink : T.mute }}>{n}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    const GroupHeader = ({ gk }) => {
-      const items      = grouped[gk];
-      const isOpen     = openGroups[gk];
-      const isCurrent  = gk === currentGroup;
-      const stk        = groupStock(items);
-      const tot        = groupTotal(items);
-      return (
-        <button onClick={() => toggleGroup(gk)}
-          style={{ width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-            padding: `${F(10)}px ${F(14)}px`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-            background: isCurrent ? (T.dark ? `${standortAccent}1a` : `${standortAccent}0f`) : (T.dark ? 'rgba(255,255,255,0.03)' : '#f7f9fc'),
-            borderTop: `1px solid ${T.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {isCurrent && <svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M3 8V5a2 2 0 012-2h3M16 3h3a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-3M8 21H5a2 2 0 01-2-2v-3M3 12h18" stroke={standortAccent} strokeWidth="2" strokeLinecap="round"/></svg>}
-            <span style={{ fontSize: F(13), fontWeight: 700, color: isCurrent ? standortAccent : T.ink }}>{gk}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: F(11), color: T.mute }}>
-              <span style={{ color: stockColor(stk), fontWeight: 700 }}>{stk}</span> vor Ort · {tot} ges.
-            </span>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s', opacity: 0.5 }}><path d="M6 9l6 6 6-6" stroke={T.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </div>
-        </button>
-      );
-    };
-
-    return (
-      <div style={{ background: T.card, borderRadius: T.radius, marginTop: T.gap, border: `1px solid ${T.border}`, boxShadow: T.tileShadow, overflow: 'hidden' }}>
-        <div style={{ fontSize: F(11), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 5, padding: `${F(10)}px ${F(14)}px`, borderBottom: `1px solid ${T.border}` }}>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/><path d="M3 7l9 4 9-4M12 11v10" stroke={T.mute} strokeWidth="2" strokeLinejoin="round"/></svg>
-          Alle Ausführungen
-        </div>
-        {!multiGroup && grouped[groupKeys[0]].map(({ sp, size }) => <SizeRow key={sp.ean || sp.art} sp={sp} size={size} />)}
-        {multiGroup && groupKeys.map((gk) => (
-          <div key={gk}>
-            <GroupHeader gk={gk} />
-            {openGroups[gk] && grouped[gk].map(({ sp, size }) => <SizeRow key={sp.ean || sp.art} sp={sp} size={size} />)}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // Hilfsfunktion: zum Suche-Tab springen und Aktionsfilter setzen
-  // Muss VOR detailScreen stehen damit der Banner darauf zugreifen kann
+  // ── Navigation: Aktionen-Filter ───────────────────────────────
   const goToAktionen = () => {
     setFilterBrand(null); setFilterCat(null); setFilterAktion(true); setQ('');
     setDetail(null);
     setTimeout(() => setTab('search'), 50);
   };
 
-  // ── Detailansicht ─────────────────────────────────────────────
-  const detailScreen = detail && (() => {
-    const Tile      = ({ children }) => <div style={{ background: T.card, borderRadius: T.radius, padding: T.pad, border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>{children}</div>;
-    const TileLabel = ({ icon, children }) => <div style={{ fontSize: F(11), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 5 }}>{icon(T.mute, 14)} {children}</div>;
-
-    // Preis direkt aus dem Artikel-Objekt — jetzt immer vorhanden
-    const onSale = detail.sale != null && detail.sale > detail.price;
-    const save   = onSale ? Math.round((1 - detail.price / detail.sale) * 100) : 0;
-
-    // Bestand
-    const stock      = getStock(detail);
-    const stockTotal = getTotalStock(detail);
-    const stockSt    = stockState(stock);
-    const locMax     = Math.max(1, ...ALL_LOC_KEYS.map((k) => detail.locs ? (detail.locs[k] ?? 0) : 0));
-
-    // Master-Lookup (für Slave-Artikel)
-    const masterProduct = !detail.isMaster
-      ? slaveToMaster[String(detail.art || '').trim().toLowerCase()]
-        || (detail.masterArt ? productByArt[detail.masterArt.toLowerCase()] : null)
-      : null;
-    const masterShopUrl = masterProduct ? (masterProduct.shopUrl || null) : null;
-
-    // Geschwister (alle Slaves desselben Masters)
-    const siblings = masterProduct ? getSiblings(masterProduct) : [];
-
-    // Shop-URL: eigene URL bevorzugt, sonst Master-URL als Fallback
-    const shopBtnUrl = detail.shopUrl || (!detail.isMaster ? masterShopUrl : null);
-
-    return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
-
-        {/* Header */}
-        <div style={{ background: T.headerBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          paddingTop: padTopDet, paddingLeft: 12, paddingRight: 12, paddingBottom: 11,
-          display: 'flex', alignItems: 'center', gap: 8, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-          <button onClick={() => setDetail(null)} style={{ width: 38, height: 38, borderRadius: 11, border: 'none', cursor: 'pointer', background: `${standortAccent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {Icon.back(standortAccent, 22)}
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: F(11), color: T.mute, textTransform: 'uppercase', letterSpacing: 1 }}>{detail.brand} · {detail.cat}</div>
-            <div style={{ fontSize: F(15), fontWeight: 700, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail.name}</div>
-          </div>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: standortAccent, flexShrink: 0 }} />
-        </div>
-
-        <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: T.pad }}>
-
-          {/* Foto + Name */}
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <ProductPhoto product={detail} dark={T.dark} radius={T.radius} style={{ width: F(96), height: F(96), flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: F(18), fontWeight: 800, color: T.ink, lineHeight: 1.2, textWrap: 'pretty' }}>{detail.name}</div>
-              <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {detail.inactive   && <span style={{ fontSize: F(11), fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b55', padding: '2px 8px', borderRadius: 6 }}>⚠ Artikel inaktiv</span>}
-                {detail.restposten && <span style={{ fontSize: F(11), fontWeight: 700, color: '#7c2d12', background: '#ffedd5', border: '1px solid #f9731655', padding: '2px 8px', borderRadius: 6 }}>🏷 Restposten</span>}
-              </div>
-              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
-                  <span>Art. {detail.art}</span>
-                  <CopyBtn text={detail.art || ''} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'ui-monospace,Menlo,monospace', fontSize: F(11), color: T.mute }}>
-                  <span>EAN {detail.ean}</span>
-                  <CopyBtn text={detail.ean || ''} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Aktionsbanner */}
-          {detail.aktionsangebote?.[standort.key] && (
-            <div onClick={goToAktionen}
-              style={{
-                marginTop: T.gap, borderRadius: T.radius, padding: '10px 14px',
-                background: '#DAA520',
-                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-              }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
-              </svg>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: F(10), fontWeight: 700, color: '#5a3e00', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Aktionsangebot</div>
-                <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00', lineHeight: 1.3 }}>{detail.aktionsangebote?.[standort.key]}</div>
-              </div>
-              <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: F(11), color: '#3d2b00', fontWeight: 700 }}>Alle</span>
-                <svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </div>
-          )}
-
-          {/* KPI tiles: Preis + Bestand */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: T.gap, marginTop: T.gap + 4 }}>
-            <Tile>
-              <TileLabel icon={Icon.tag}>Preis</TileLabel>
-              {detail.noPrice ? (
-                <div style={{ marginTop: 6 }}>
-                  <div style={{ fontSize: F(13), fontWeight: 700, color: '#b45309' }}>Preis wird aktualisiert</div>
-                  <div style={{ marginTop: 4, fontSize: F(11), color: T.mute, lineHeight: 1.4 }}>Wir arbeiten daran. Aktuellen Preis bitte im Onlineshop prüfen.</div>
-                </div>
-              ) : (
-                <>
-                  <div style={{ fontSize: F(24), fontWeight: 800, color: onSale ? T.red : standortAccent, marginTop: 6, lineHeight: 1 }}>
-                    {EUR(detail.price)}
-                  </div>
-                  {onSale ? (
-                    <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: F(12), color: T.mute, textDecoration: 'line-through' }}>{EUR(detail.sale)}</span>
-                      <span style={{ fontSize: F(11), fontWeight: 700, color: '#fff', background: T.red, padding: '1px 6px', borderRadius: 5 }}>−{save}%</span>
-                    </div>
-                  ) : <div style={{ marginTop: 5, fontSize: F(12), color: T.mute }}>inkl. MwSt.</div>}
-                </>
-              )}
-            </Tile>
-            <Tile>
-              <TileLabel icon={Icon.box}>Bestand · {standort.label}</TileLabel>
-              <div style={{ fontSize: F(24), fontWeight: 800, color: T.stock[stockSt], marginTop: 6, lineHeight: 1 }}>
-                {stock}<span style={{ fontSize: F(13), fontWeight: 600, color: T.mute }}> Stk</span>
-              </div>
-              <div style={{ marginTop: 5, fontSize: F(11), color: T.mute }}>vor Ort · {stockTotal} gesamt</div>
-              <div style={{ marginTop: 7, height: 6, borderRadius: 6, background: T.dark ? 'rgba(255,255,255,0.1)' : '#e7ecf3', overflow: 'hidden' }}>
-                <div style={{ width: `${stockTotal ? Math.round((stock / stockTotal) * 100) : 0}%`, height: '100%', background: T.stock[stockSt], borderRadius: 6 }} />
-              </div>
-            </Tile>
-          </div>
-
-          {/* Bestand nach Standort — nur für Einzelartikel ohne Geschwister */}
-          {detail.locs && siblings.length === 0 && (
-            <div style={{ background: T.card, borderRadius: T.radius, padding: T.pad, marginTop: T.gap, border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>
-              <TileLabel icon={Icon.box}>Bestand nach Standort</TileLabel>
-              <div style={{ marginTop: 10 }}>
-                <StandortChips locs={detail.locs} stockFallback={getStock(detail)} />
-              </div>
-            </div>
-          )}
-
-          {/* Geschwister — neues Layout */}
-          {siblings.length > 0 && (
-            <SiblingsNew siblings={siblings} currentEan={detail._scannedEan} T={T} F={F} />
-          )}
-
-          {/* Spec-Tabelle */}
-          <div style={{ background: T.card, borderRadius: T.radius, marginTop: T.gap, overflow: 'hidden', border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>
-            {[
-              detail.brand ? ['Hersteller', detail.brand] : null,
-              detail.cat   ? ['Kategorie',  detail.cat]   : null,
-            ].filter(Boolean).map(([k, v], i) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: `${T.pad - 4}px ${T.pad}px`, background: i % 2 && !T.dark ? '#fafbfd' : 'transparent', borderTop: i ? `1px solid ${T.border}` : 'none' }}>
-                <span style={{ color: T.mute, fontSize: F(13) }}>{k}</span>
-                <span style={{ color: T.ink, fontSize: F(13), fontWeight: 600, textAlign: 'right' }}>{v}</span>
-              </div>
-            ))}
-
-            {/* Master-Link (nur für Slave-Artikel) */}
-            {masterProduct && (
-              masterShopUrl ? (
-                <a href={masterShopUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
-                    padding: `${T.pad - 4}px ${T.pad}px`, borderTop: `1px solid ${T.border}`,
-                    textDecoration: 'none', cursor: 'pointer',
-                    background: T.dark ? `${standortAccent}0d` : `${standortAccent}07` }}>
-                  <span style={{ color: T.mute, fontSize: F(13) }}>Masterartikel im Shop</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: standortAccent, fontSize: F(13), fontWeight: 700, fontFamily: 'ui-monospace, Menlo, monospace' }}>
-                    {masterProduct.art}
-                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke={standortAccent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M15 3h6v6M10 14L21 3" stroke={standortAccent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </span>
-                </a>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: `${T.pad - 4}px ${T.pad}px`, borderTop: `1px solid ${T.border}` }}>
-                  <span style={{ color: T.mute, fontSize: F(13) }}>Masterartikel</span>
-                  <span style={{ color: T.ink, fontSize: F(13), fontWeight: 600, fontFamily: 'ui-monospace, Menlo, monospace' }}>{masterProduct.art}</span>
-                </div>
-              )
-            )}
-          </div>
-
-          {!shopBtnUrl && (
-            <div style={{ textAlign: 'center', fontSize: F(11), color: T.mute, marginBottom: T.gap }}>Kein Onlineshop-Eintrag gefunden</div>
-          )}
-        </div>
-
-        {/* Button-Leiste: Onlineshop + Nächsten Artikel scannen nebeneinander */}
-        <div style={{ paddingTop: 11, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: padBotBtn, background: T.bg, borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
-          {shopBtnUrl && (
-            <a href={shopBtnUrl} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, height: 50, borderRadius: 14, border: `1.5px solid ${standortAccent}55`,
-                background: `${standortAccent}0e`, color: standortAccent,
-                fontSize: F(14), fontWeight: 800, textDecoration: 'none', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M15 3h6v6M10 14L21 3" stroke={standortAccent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Onlineshop
-            </a>
-          )}
-          <button onClick={() => { setDetail(null); setTab('scan'); }}
-            style={{ flex: shopBtnUrl ? 1 : undefined, width: shopBtnUrl ? undefined : '100%', height: 50, borderRadius: 14, border: 'none', cursor: 'pointer', background: standortAccent,
-              color: T.dark ? '#06131f' : '#fff', fontSize: F(16), fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
-            {Icon.scan(T.dark ? '#06131f' : '#fff', 20)} Nächsten Artikel scannen
-          </button>
-        </div>
-      </div>
-    );
-  })();
-
   // ── Scan-Tab ──────────────────────────────────────────────────
-  // Anzahl Aktionsartikel für den Banner + Suggestion (muss vor scanTab stehen)
   const aktionenCount = useMemo(() =>
     PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebote?.[standort.key]).length,
   [PRODUCTS, standort]);
@@ -935,9 +359,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const q2 = q.trim().toLowerCase();
   const tokenMatch = (s, toks) => toks.every((t) => s.includes(t));
 
-  // Top-10-Marken und -Kategorien aus echten Daten (gezählt aus dem Sheet).
-  // Reihenfolge = Häufigkeit. Gekürzte Anzeigenamen für die Chips.
-  // Deaktivierte Artikel werden grundsätzlich herausgefiltert.
   const TOP_BRANDS = [
     { value: 'Mares',                              label: 'Mares' },
     { value: 'ScubaPro',                           label: 'ScubaPro' },
@@ -964,12 +385,11 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     { value: 'Trilaminat Trockentauchanzüge',    label: 'Trilaminat' },
   ];
 
-  const [filterBrand, setFilterBrand] = useState(null);
-  const [filterCat,   setFilterCat]   = useState(null);
+  const [filterBrand,  setFilterBrand]  = useState(null);
+  const [filterCat,    setFilterCat]    = useState(null);
   const [filterAktion, setFilterAktion] = useState(false);
-  const [visibleCap, setVisibleCap] = useState(40);
+  const [visibleCap,   setVisibleCap]   = useState(40);
 
-  // Suchverlauf speichern (debounced: erst wenn mind. 2 Zeichen & 800ms keine Eingabe)
   useEffect(() => {
     if (q.trim().length < 2) return;
     const id = setTimeout(() => {
@@ -982,10 +402,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     return () => clearTimeout(id);
   }, [q]);
 
-  // visibleCap zurücksetzen bei neuer Suche/Filter
   useEffect(() => { setVisibleCap(40); }, [q, filterBrand, filterCat, filterAktion]);
   const toks = q2.length >= 2 ? q2.split(/\s+/).filter(Boolean) : [];
-  const SEARCH_CAP = 40;
 
   const matches = useMemo(() => {
     return PRODUCTS.filter((p) => {
@@ -1002,13 +420,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const shown = matches.slice(0, visibleCap);
   const activeFilters = (filterBrand ? 1 : 0) + (filterCat ? 1 : 0) + (filterAktion ? 1 : 0);
 
-  // Aktiven Chip-Label für die Anzeige finden
-  const activeBrandLabel = filterBrand
-    ? (TOP_BRANDS.find((b) => b.value === filterBrand)?.label || filterBrand)
-    : null;
-  const activeCatLabel = filterCat
-    ? (TOP_CATS.find((c) => c.value === filterCat)?.label || filterCat)
-    : null;
+  const activeBrandLabel = filterBrand ? (TOP_BRANDS.find((b) => b.value === filterBrand)?.label || filterBrand) : null;
+  const activeCatLabel   = filterCat   ? (TOP_CATS.find((c) => c.value === filterCat)?.label   || filterCat)   : null;
 
   const Chip = ({ label, active, onPress }) => (
     <button onClick={onPress} style={{ flexShrink: 0, height: 30, padding: '0 12px', borderRadius: 20,
@@ -1019,12 +432,10 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     </button>
   );
 
-  // Zeige Aktions-Suggestion wenn Eingabe auf "aktion" matcht
   const showAktionSuggestion = q.trim().length >= 2
     && 'aktionsangebote'.startsWith(q.trim().toLowerCase())
     && !filterAktion;
 
-  // Gesamtzahl aktiver Artikel
   const totalActive = useMemo(() =>
     PRODUCTS.filter((p) => !p.isMaster).length,
   [PRODUCTS]);
@@ -1033,13 +444,11 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
       <Header title="Suche" sub={`${totalActive.toLocaleString('de-DE')} Artikel im Sortiment`} />
       <div style={{ padding: `12px ${T.pad}px 0`, position: 'relative' }}>
-        {/* Suchfeld — zeigt Aktions-Tag wenn Filter aktiv, sonst normales Input */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.field, borderRadius: 12,
           padding: filterAktion ? '8px 14px' : '10px 14px',
           border: filterAktion ? `1.5px solid #DAA520` : `1px solid ${T.border}`,
           boxShadow: T.tileShadow }}>
           {Icon.search(T.mute, 18)}
-          {/* Aktions-Tag im Suchfeld */}
           {filterAktion && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
               color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13),
@@ -1063,7 +472,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
             </button>
           )}
         </div>
-        {/* Autocomplete-Dropdown: Aktions-Suggestion */}
         {showAktionSuggestion && (
           <div style={{ position: 'absolute', left: T.pad, right: T.pad, top: '100%', zIndex: 50,
             background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden',
@@ -1090,7 +498,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           </div>
         )}
       </div>
-      {/* Marken-Chips */}
       <div style={{ padding: `8px ${T.pad}px 0` }}>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
           <Chip label="Alle Marken" active={!filterBrand} onPress={() => setFilterBrand(null)} />
@@ -1103,7 +510,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           )}
         </div>
       </div>
-      {/* Kategorien-Chips */}
       <div style={{ padding: `4px ${T.pad}px 6px` }}>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
           <Chip label="Alle Kategorien" active={!filterCat} onPress={() => setFilterCat(null)} />
@@ -1183,224 +589,6 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     </div>
   );
 
-  // ── Info-Tab ──────────────────────────────────────────────────
-  const [infoOS, setInfoOS] = React.useState('ios');
-  const infoTab = (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
-      <Header title="Anleitung" sub="Atlantis Scan · Kurzguide" />
-      <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: T.pad }}>
-
-        {/* Hinweis-Box */}
-        <div style={{ background: '#fffbeb', border: '1px solid #f59e0b55', borderLeft: `4px solid #f59e0b`, borderRadius: T.radius, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: T.gap * 2 }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>☀️</span>
-          <p style={{ fontSize: F(13), color: '#78350f', lineHeight: 1.55 }}><strong>Sommerfest-Premiere!</strong> Wir testen die App heute zum ersten Mal gemeinsam im Alltagseinsatz. Einfach ausprobieren, Fragen stellen und Feedback geben — so machen wir sie noch besser.</p>
-        </div>
-
-        {/* 0 — Einrichtung */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 32, height: 32, background: '#0e7c8b', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>0</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Einmalige Einrichtung</span>
-        </div>
-        <p style={{ fontSize: F(13), color: T.mute, marginBottom: 10, lineHeight: 1.55 }}>Die App läuft im Browser und kann wie eine echte App zum Startbildschirm hinzugefügt werden.</p>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <button onClick={() => setInfoOS('ios')} style={{ flex: 1, padding: '10px 8px', borderRadius: 10, border: infoOS === 'ios' ? `2px solid ${standortAccent}` : `1.5px solid ${T.border}`, background: infoOS === 'ios' ? standortAccent : T.card, color: infoOS === 'ios' ? '#fff' : T.mute, fontSize: F(13), fontWeight: infoOS === 'ios' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-             iPhone (Safari)
-          </button>
-          <button onClick={() => setInfoOS('android')} style={{ flex: 1, padding: '10px 8px', borderRadius: 10, border: infoOS === 'android' ? `2px solid ${standortAccent}` : `1.5px solid ${T.border}`, background: infoOS === 'android' ? standortAccent : T.card, color: infoOS === 'android' ? '#fff' : T.mute, fontSize: F(13), fontWeight: infoOS === 'android' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-            🤖 Android (Chrome)
-          </button>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: T.gap * 2 }}>
-          {(infoOS === 'ios' ? [
-            ['1', 'Safari öffnen', 'Safari aufrufen (nicht Chrome) und scanner.atlantis-berlin.de eingeben.'],
-            ['2', 'Teilen-Button antippen', 'Unten in der Mitte auf das Teilen-Symbol tippen — Viereck mit Pfeil nach oben ⬆'],
-            ['3', '„Zum Home-Bildschirm" wählen', 'Im Menü nach unten scrollen und antippen.'],
-            ['4', 'Bestätigen', 'Namen so lassen und oben rechts auf „Hinzufügen" tippen.'],
-            ['5', 'Fertig!', 'App-Icon erscheint auf dem Startbildschirm. Einmalig Kamerazugriff erlauben.'],
-          ] : [
-            ['1', 'Chrome öffnen', 'Chrome aufrufen und scanner.atlantis-berlin.de eingeben.'],
-            ['2', 'Menü öffnen', 'Oben rechts auf die drei Punkte ⋮ tippen.'],
-            ['3', '„App installieren"', 'Auf „App installieren" oder „Zum Startbildschirm hinzufügen" tippen und bestätigen.'],
-            ['4', 'Fertig!', 'App-Icon erscheint. Beim ersten Start Kamerazugriff mit „Zulassen" bestätigen.'],
-          ]).map(([n, title, desc], i, arr) => (
-            <div key={n} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px dashed ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <div style={{ width: 26, height: 26, background: T.dark ? 'rgba(255,255,255,0.1)' : '#eef3fb', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: F(12), fontWeight: 700, color: standortAccent }}>{n}</div>
-              <div>
-                <div style={{ fontSize: F(13), fontWeight: 700, color: T.ink, marginBottom: 2 }}>{title}</div>
-                <div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 1 — Was kann die App */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 32, height: 32, background: standortAccent, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>1</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Was kann die App?</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '12px 14px', marginBottom: 10 }}>
-          <p style={{ fontSize: F(13), color: T.ink, lineHeight: 1.65, marginBottom: 10 }}><strong>Atlantis Scan</strong> ist unser internes Tool zum schnellen Nachschlagen von Artikeln. Barcodes scannen oder nach Produkten suchen — sofort Preis und Lagerbestand nach Standort.</p>
-          <div style={{ background: '#fff5f5', border: '1px solid #fca5a555', borderLeft: `4px solid ${T.red}`, borderRadius: 8, padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
-            <p style={{ fontSize: F(12), color: '#7f1d1d', lineHeight: 1.5 }}><strong>Nur lesen, nicht schreiben:</strong> Bestände können in der App nicht geändert werden. Sie ist ein Nachschlage-Tool, kein Warenwirtschaftssystem.</p>
-          </div>
-        </div>
-
-        {/* 2 — Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: standortAccent, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>2</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Aufbau: 4 Tabs</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '12px 14px', marginBottom: 10 }}>
-          <p style={{ fontSize: F(13), color: T.mute, lineHeight: 1.6, marginBottom: 10 }}>Die App ist in vier Bereiche aufgeteilt, zwischen denen du jederzeit über die <strong style={{ color: T.ink }}>Tab-Leiste unten</strong> wechselst.</p>
-          {[['📷', 'Scannen', 'Barcode per Kamera oder manuelle Eingabe'], ['🔍', 'Suche', 'Nach Name, Marke, Art.-Nr. oder EAN suchen'], ['🕐', 'Verlauf', 'Zuletzt gescannte Artikel (bis zu 20)'], ['ℹ️', 'Anleitung', 'Diese Hilfe-Seite']].map(([ico, name, desc], i) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i > 0 ? `1px solid ${T.border}` : 'none' }}>
-              <span style={{ fontSize: 18, width: 28, textAlign: 'center', flexShrink: 0 }}>{ico}</span>
-              <div>
-                <div style={{ fontSize: F(13), fontWeight: 700, color: T.ink }}>{name}</div>
-                <div style={{ fontSize: F(12), color: T.mute }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 3 — Scannen */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#0e7c8b', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>3</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Tab „Scannen"</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: 10 }}>
-          {[['📷', 'Kamera starten', 'Auf den blauen Button tippen. Barcode mittig im Rahmen halten — wird automatisch erkannt.'], ['⌨️', 'Manuell eingeben', 'Kein Barcode lesbar? EAN oder Artikelnummer eintippen und auf „Suchen" tippen.'], ['🕐', 'Zuletzt gescannt', 'Die letzten 3 Artikel erscheinen direkt unter der Kamera.']].map(([ico, title, desc], i) => (
-            <div key={title} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px solid ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: 'center', marginTop: 2 }}>{ico}</span>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: standortAccent, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        {/* 4 — Suche */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#166534', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>4</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Tab „Suche"</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: 10 }}>
-          {[['✏️', 'Wonach suchen?', 'Produktname, Marke, Artikelnummer oder EAN. Mindestens 2 Zeichen eingeben.'], ['🏷️', 'Marke filtern', 'Horizontale Scroll-Leiste mit Marken — antippen zum Aktivieren, nochmal zum Aufheben.'], ['📂', 'Kategorie filtern', 'Zweite Leiste mit Kategorien (Schnorchel, Masken, Flossen …).'], ['📊', 'Ergebnisse', 'Zeigt bis zu 40 Treffer. Mehr? „Mehr laden"-Button antippen oder Suche verfeinern.']].map(([ico, title, desc], i) => (
-            <div key={title} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px solid ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: 'center', marginTop: 2 }}>{ico}</span>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: standortAccent, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        {/* 5 — Detailansicht */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#7c2d12', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>5</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Artikeldetails</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: 10 }}>
-          {[['💰', 'Preis & Rabatt', 'Regulärer Preis oder Aktionspreis (rot, mit durchgestrichenem Original und Prozentbadge).'], ['📦', 'Bestand nach Standort', 'Chips für alle 5 Standorte — der aktive Standort ist farbig hervorgehoben.'], ['📐', 'Ausführungen', 'Bei Varianten (Größen/Farben) werden alle Ausführungen mit Bestand angezeigt. Gescannte Variante wird oben blau hervorgehoben.'], ['🌐', 'Onlineshop-Button', 'Unten: „Onlineshop" öffnet den Artikel direkt auf atlantis-onlineshop.de.']].map(([ico, title, desc], i) => (
-            <div key={title} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px solid ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: 'center', marginTop: 2 }}>{ico}</span>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: standortAccent, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        {/* 6 — Verlauf */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#581c87', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>6</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Tab „Verlauf"</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: 10 }}>
-          {[['📋', 'Was wird gespeichert?', 'Alle gescannten und angesehenen Artikel — bis zu 20, neueste zuerst, mit Uhrzeit-Stempel.'], ['🗑️', 'Verlauf leeren', 'Oben rechts gibt es einen „Leeren"-Button.']].map(([ico, title, desc], i) => (
-            <div key={title} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px solid ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: 'center', marginTop: 2 }}>{ico}</span>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: standortAccent, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        {/* 7 — Standort */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#374151', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>7</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Standort wechseln</span>
-        </div>
-        <div style={{ background: T.dark ? `${standortAccent}18` : '#eef3fb', border: `1px solid ${standortAccent}44`, borderRadius: T.radius, padding: '12px 14px', display: 'flex', gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>📍</span>
-          <div>
-            <div style={{ fontSize: F(13), fontWeight: 700, color: T.ink, marginBottom: 3 }}>Immer oben rechts sichtbar</div>
-            <p style={{ fontSize: F(12), color: T.mute, lineHeight: 1.55 }}>Farbiger Standort-Badge oben rechts in jedem Tab. Antippen zum Wechseln — der Bestand passt sich überall automatisch an.</p>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8, marginBottom: 10 }}>
-          {STANDORTE.map((s) => {
-            const col = T.dark ? s.accentDark : s.accent;
-            return (
-              <div key={s.key} style={{ background: T.dark ? `${col}18` : `${col}0a`, border: `1.5px solid ${col}44`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: col, flexShrink: 0 }} />
-                <span style={{ fontSize: F(13), fontWeight: 700, color: col }}>{s.label}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 8 — Bestandsampel */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: standortAccent, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(14), fontWeight: 700 }}>8</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Bestandsampel</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: 10 }}>
-          {[['🟢', T.stock.ok, 'Grün — genug da', 'Mehr als 2 Stück an diesem Standort.'], ['🟡', T.stock.low, 'Gelb — wenig Bestand', '1 oder 2 Stück — bald ausverkauft.'], ['🔴', T.stock.out, 'Rot — nicht verfügbar', '0 Stück. Ggf. andere Standorte oder Gesamtbestand prüfen.']].map(([ico, col, title, desc], i) => (
-            <div key={title} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px solid ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, flexShrink: 0, width: 28, textAlign: 'center', marginTop: 2 }}>{ico}</span>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: col, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        {/* Schnellstart */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: T.gap * 2 }}>
-          <div style={{ width: 32, height: 32, background: '#0e7c8b', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: F(13), fontWeight: 700 }}>✓</span>
-          </div>
-          <span style={{ fontSize: F(17), fontWeight: 800, color: standortAccent }}>Schnellstart für heute</span>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', marginBottom: T.gap * 2 }}>
-          {[['1', 'App öffnen', 'Im Browser scanner.atlantis-berlin.de aufrufen — oder App-Icon antippen.'], ['2', 'Standort prüfen', 'Oben rechts sollte der richtige Standort angezeigt sein. Falls nicht: antippen und wechseln.'], ['3', 'Kamera erlauben', 'Beim ersten Start einmalig „Erlauben" antippen wenn der Browser nach Kamerazugriff fragt.'], ['4', 'Artikel scannen oder suchen', 'Barcode vor die Kamera halten oder Tab „Suche" öffnen und lostippen. Fertig!']].map(([n, title, desc], i) => (
-            <div key={n} style={{ display: 'flex', gap: 12, padding: '12px 14px', borderTop: i > 0 ? `1px dashed ${T.border}` : 'none', alignItems: 'flex-start' }}>
-              <div style={{ width: 26, height: 26, background: T.dark ? 'rgba(255,255,255,0.1)' : '#eef3fb', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: F(12), fontWeight: 700, color: standortAccent }}>{n}</div>
-              <div><div style={{ fontSize: F(13), fontWeight: 700, color: T.ink, marginBottom: 2 }}>{title}</div><div style={{ fontSize: F(12), color: T.mute, lineHeight: 1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ textAlign: 'center', fontSize: F(11), color: T.mute, paddingBottom: 8, lineHeight: 1.6 }}>
-          Atlantis Berlin Wassersport &amp; Mee(h)r · Interne App-Anleitung<br />
-          <a href="mailto:developer@atlantis-berlin.de" style={{ color: standortAccent, textDecoration: 'none' }}>developer@atlantis-berlin.de</a>
-        </div>
-
-      </div>
-    </div>
-  );
-
   // ── Tab-Bar ───────────────────────────────────────────────────
   const TabBtn = ({ id, label, icon }) => {
     const active = tab === id;
@@ -1423,7 +611,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           {tab === 'scan'    && scanTab}
           {tab === 'search'  && searchTab}
           {tab === 'history' && historyTab}
-          {tab === 'info'    && infoTab}
+          {tab === 'info'    && <InfoTab T={T} F={F} standort={standort} standortAccent={standortAccent} STANDORTE={STANDORTE} Header={Header} />}
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 9, background: T.headerBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}`, paddingBottom: padBotTabs, display: 'flex' }}>
@@ -1439,7 +627,20 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
         )} />
       </div>
       <div style={{ position: 'absolute', inset: 0, zIndex: 20, transform: detail ? 'translateX(0)' : 'translateX(100%)', transition: 'transform .3s cubic-bezier(.22,1,.36,1)', pointerEvents: detail ? 'auto' : 'none' }}>
-        {detailScreen}
+        {detail && (
+          <DetailView
+            detail={detail}
+            onClose={() => setDetail(null)}
+            onScanNext={() => { setDetail(null); setTab('scan'); }}
+            goToAktionen={goToAktionen}
+            T={T} F={F}
+            standort={standort} standortAccent={standortAccent}
+            STANDORTE={STANDORTE} ALL_LOC_KEYS={ALL_LOC_KEYS}
+            slaveToMaster={slaveToMaster} productByArt={productByArt} getSiblings={getSiblings}
+            getStock={getStock} getTotalStock={getTotalStock}
+            padTopDet={padTopDet} padBotBtn={padBotBtn}
+          />
+        )}
       </div>
       {showStandortPicker && <StandortPicker />}
     </div>
