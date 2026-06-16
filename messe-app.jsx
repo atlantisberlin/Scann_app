@@ -57,13 +57,18 @@
     const [err,  setErr]    = React.useState('');
     const [busy, setBusy]   = React.useState(false);
 
-    const submit = () => {
+    const submit = async () => {
       if (!user || !pass) { setErr('Bitte Benutzername und Passwort eingeben.'); return; }
       setBusy(true);
-      const session = MesseAuth.login(user.trim(), pass);
-      setBusy(false);
-      if (session) { setErr(''); onLogin(session); }
-      else setErr('Falscher Benutzername oder Passwort.');
+      try {
+        const session = await MesseAuth.login(user.trim(), pass);
+        setBusy(false);
+        if (session) { setErr(''); onLogin(session); }
+        else setErr('Falscher Benutzername oder Passwort.');
+      } catch {
+        setBusy(false);
+        setErr('Verbindungsfehler – bitte erneut versuchen.');
+      }
     };
 
     const inputStyle = {
@@ -789,8 +794,21 @@
 
   // ── Admin Screen ───────────────────────────────────────────────
   function AdminScreen({ session, adminView, setAdminView, onExitAdmin, onLogout }) {
-    const [users, setUsers]     = React.useState(() => MesseAuth.getUsers());
+    const [users, setUsers]     = React.useState([]);
+    const [usersLoading, setUsersLoading] = React.useState(false);
     const [lps, setLps]         = React.useState(() => MesseAuth.getLagerplaetze());
+
+    const reloadUsers = React.useCallback(() => {
+      setUsersLoading(true);
+      MesseAuth.getUsers(session.username).then(list => {
+        setUsers(list);
+        setUsersLoading(false);
+      }).catch(() => setUsersLoading(false));
+    }, [session.username]);
+
+    React.useEffect(() => {
+      if (adminView === 'users') reloadUsers();
+    }, [adminView, reloadUsers]);
     const [newUser, setNewUser] = React.useState({ vorname: '', nachname: '', username: '', password: '', role: 'messe' });
     const [newLp, setNewLp]     = React.useState({ name: '', color: GOLD });
     const orders = MesseAuth.getOrders();
@@ -819,104 +837,41 @@
       };
 
       const [addedMsg, setAddedMsg] = React.useState('');
-      const [importVal, setImportVal] = React.useState('');
-      const [showExport, setShowExport] = React.useState(false);
-      const [showImport, setShowImport] = React.useState(false);
+      const [busy, setBusy] = React.useState(false);
 
-      const exportStr = () => {
-        // only export non-builtin users
-        const toExport = users.filter(u => !isSuperAdmin(u) || u.username !== 'erik.f');
-        return btoa(JSON.stringify(toExport));
-      };
-
-      const doImport = () => {
-        try {
-          const imported = JSON.parse(atob(importVal.trim()));
-          if (!Array.isArray(imported)) { alert('Ungültiger Code'); return; }
-          const current = MesseAuth.getUsers();
-          const merged = [...current];
-          imported.forEach(u => {
-            if (!merged.find(e => e.username === u.username)) merged.push(u);
-          });
-          MesseAuth.saveUsers(merged);
-          setUsers(MesseAuth.getUsers());
-          setImportVal('');
-          setShowImport(false);
-        } catch { alert('Ungültiger Code'); }
-      };
-
-      const addUser = () => {
+      const addUser = async () => {
         if (!newUser.vorname || !newUser.nachname || !newUser.username || !newUser.password) {
           setAddedMsg('Bitte alle Felder ausfüllen.');
           return;
         }
-        if (users.find(u => u.username === newUser.username)) {
-          setAddedMsg('Benutzername bereits vergeben.');
-          return;
-        }
         const initials = (newUser.vorname[0] + newUser.nachname[0]).toUpperCase();
         const u = { ...newUser, name: `${newUser.vorname} ${newUser.nachname}`, initials };
-        const next = [...users, u];
-        MesseAuth.saveUsers(next);
-        setUsers(MesseAuth.getUsers());
+        setBusy(true);
+        const res = await MesseAuth.addUser(session.username, u);
+        setBusy(false);
+        if (!res.ok) { setAddedMsg(res.error || 'Fehler'); return; }
         setNewUser({ vorname: '', nachname: '', username: '', password: '', role: 'messe' });
         setAddedMsg(`✓ ${u.name} angelegt`);
         setTimeout(() => setAddedMsg(''), 3000);
+        reloadUsers();
       };
-      const delUser = (username) => {
+
+      const delUser = async (username) => {
         if (!window.confirm(`Benutzer "${username}" wirklich löschen?`)) return;
-        const next = users.filter(u => u.username !== username);
-        MesseAuth.saveUsers(next);
-        setUsers(MesseAuth.getUsers());
+        setBusy(true);
+        const res = await MesseAuth.delUser(session.username, username);
+        setBusy(false);
+        if (!res.ok) { alert(res.error || 'Löschen fehlgeschlagen'); return; }
+        reloadUsers();
       };
       return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e293b', color: '#f3f7fb' }}>
           <div style={{ padding: 'calc(env(safe-area-inset-top,12px) + 16px) 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={() => setAdminView('dash')} style={{ border: 'none', background: 'rgba(255,255,255,0.1)', borderRadius: 10, width: 36, height: 36, cursor: 'pointer', color: '#f3f7fb', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
             <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Benutzerverwaltung</div>
-            {callerIsSuper && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => { setShowImport(!showImport); setShowExport(false); }}
-                  style={{ border: 'none', background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#f3f7fb', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
-                  ↓ Import
-                </button>
-                <button onClick={() => { setShowExport(!showExport); setShowImport(false); }}
-                  style={{ border: 'none', background: 'rgba(218,165,32,.2)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: GOLD, fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
-                  ↑ Export
-                </button>
-              </div>
-            )}
+            {usersLoading && <div style={{ fontSize: 13, color: GOLD, opacity: 0.7 }}>⟳ Laden…</div>}
           </div>
           <div style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
-
-            {/* Export panel */}
-            {showExport && (
-              <div style={{ background: 'rgba(218,165,32,.1)', border: '1px solid rgba(218,165,32,.3)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, marginBottom: 8 }}>SYNC-CODE — auf anderen Geräten importieren</div>
-                <textarea readOnly value={exportStr()} rows={3}
-                  style={{ width: '100%', background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: 10, color: '#f3f7fb', fontSize: 11, fontFamily: 'ui-monospace,monospace', resize: 'none' }}
-                  onClick={e => e.target.select()}
-                />
-                <button onClick={() => { navigator.clipboard?.writeText(exportStr()); }}
-                  style={{ marginTop: 8, width: '100%', height: 40, borderRadius: 10, border: 'none', background: GOLD, color: '#1b2733', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Code kopieren
-                </button>
-              </div>
-            )}
-
-            {/* Import panel */}
-            {showImport && (
-              <div style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.6)', marginBottom: 8 }}>SYNC-CODE EINFÜGEN</div>
-                <textarea value={importVal} onChange={e => setImportVal(e.target.value)} placeholder="Sync-Code hier einfügen…" rows={3}
-                  style={{ width: '100%', background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: 10, color: '#f3f7fb', fontSize: 11, fontFamily: 'ui-monospace,monospace', resize: 'none', outline: 'none' }}
-                />
-                <button onClick={doImport}
-                  style={{ marginTop: 8, width: '100%', height: 40, borderRadius: 10, border: 'none', background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Benutzer importieren
-                </button>
-              </div>
-            )}
 
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Neuen Benutzer anlegen</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -932,7 +887,7 @@
               {callerIsSuper && <option value="admin">Admin</option>}
             </select>
             {addedMsg && <div style={{ fontSize: 13, color: addedMsg.startsWith('✓') ? '#86efac' : '#fca5a5', marginBottom: 8, fontWeight: 600 }}>{addedMsg}</div>}
-            <button onClick={addUser} style={{ width: '100%', height: 46, borderRadius: 12, border: 'none', background: GOLD, color: '#1b2733', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>Benutzer anlegen</button>
+            <button onClick={addUser} disabled={busy} style={{ width: '100%', height: 46, borderRadius: 12, border: 'none', background: busy ? 'rgba(218,165,32,.4)' : GOLD, color: '#1b2733', fontWeight: 800, fontSize: 15, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit', marginBottom: 20 }}>{busy ? 'Speichern…' : 'Benutzer anlegen'}</button>
 
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 600 }}>Bestehende Benutzer ({users.length})</div>
             {users.map(u => {

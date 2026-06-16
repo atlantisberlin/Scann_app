@@ -1,11 +1,9 @@
-// Messe authentication and data management
+// Messe authentication — users managed via Google Sheets / Apps Script
 // Sets window.MesseAuth
 (function () {
   'use strict';
 
-  const BUILTIN_USERS = [
-    { username: 'erik.f', password: 'AtlantisApp213', name: 'Erik Fritsche', role: 'admin', initials: 'EF' }
-  ];
+  const API = 'https://script.google.com/macros/s/AKfycbwIkKv8GUtc5WsQsvlMCFaujif_jizWPebNoDRD_kSzenGeWec_whWvOhxTZW2ZZCfj/exec';
 
   const DEFAULT_LAGERPLAETZE = [
     { id: 'halle-a', name: 'Halle A – Eingang',  color: '#b8860b' },
@@ -22,39 +20,65 @@
     try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
   }
 
+  function apiFetch(params) {
+    const url = API + '?' + new URLSearchParams(params).toString();
+    return fetch(url).then(r => r.json());
+  }
+
   const MesseAuth = {
     getSession() {
       return load('messe_session', null);
     },
-    login(username, password) {
-      const users = MesseAuth.getUsers();
-      const user = users.find(u => u.username === username && u.password === password);
-      if (!user) return null;
-      const session = { username: user.username, name: user.name, role: user.role, initials: user.initials };
+
+    // Returns Promise<session|null> — async because it hits Google Sheets
+    async login(username, password) {
+      const res = await apiFetch({ action: 'login', username, password });
+      if (!res.ok) return null;
+      const session = { ...res.user, password }; // keep password for API calls
       save('messe_session', session);
       return session;
     },
+
     logout() {
       localStorage.removeItem('messe_session');
     },
-    getUsers() {
-      const stored = load('messe_users', []);
-      // merge builtin (builtin always wins for erik.f)
-      const merged = [...BUILTIN_USERS];
-      stored.forEach(u => {
-        if (!merged.find(b => b.username === u.username)) merged.push(u);
+
+    // Returns Promise<user[]>
+    async getUsers(callerUsername) {
+      const res = await apiFetch({ action: 'list', caller: callerUsername });
+      if (!res.ok) return [];
+      return res.users;
+    },
+
+    // Returns Promise<{ok, error?}>
+    async addUser(caller, newUser) {
+      const session = MesseAuth.getSession();
+      return apiFetch({
+        action:     'add',
+        caller:     caller,
+        callerPass: session?.password || '',
+        username:   newUser.username,
+        password:   newUser.password,
+        name:       newUser.name,
+        role:       newUser.role,
+        initials:   newUser.initials,
       });
-      return merged;
     },
-    saveUsers(users) {
-      // don't store builtin users — they are always injected by getUsers
-      const toStore = users.filter(u => !BUILTIN_USERS.find(b => b.username === u.username));
-      save('messe_users', toStore);
+
+    // Returns Promise<{ok, error?}>
+    async delUser(caller, targetUsername) {
+      const session = MesseAuth.getSession();
+      return apiFetch({
+        action:     'del',
+        caller:     caller,
+        callerPass: session?.password || '',
+        target:     targetUsername,
+      });
     },
+
     getLagerplaetze() {
       const stored = load('messe_lagerplaetze', null);
-      if (!stored) return [...DEFAULT_LAGERPLAETZE];
-      return stored;
+      return stored || [...DEFAULT_LAGERPLAETZE];
     },
     saveLagerplaetze(list) {
       save('messe_lagerplaetze', list);
