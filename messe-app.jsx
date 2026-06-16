@@ -123,8 +123,8 @@
           <span style={{ fontSize: 14, fontWeight: 700, color: GOLD_DARK, background: GOLD_BG, borderRadius: 20, padding: '5px 12px', border: `1.5px solid ${GOLD_BORDER}` }}>⭐ Messe</span>
         </div>
         <button onClick={onUserChipClick} style={{ border: 'none', background: GOLD_BG, borderRadius: 20, padding: '5px 10px 5px 6px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7, outline: `1.5px solid ${GOLD_BORDER}` }}>
-          <Avatar initials={session.initials} size={24} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: GOLD_DARK }}>{session.name.split(' ')[0]}</span>
+          <Avatar initials={session.initials || (session.username || '?')[0].toUpperCase()} size={24} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: GOLD_DARK }}>{(session.name || session.username || '').split(' ')[0]}</span>
         </button>
       </div>
     );
@@ -137,9 +137,9 @@
         <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: CARD_BG, borderRadius: '20px 20px 0 0', padding: '20px 16px', paddingBottom: 'calc(env(safe-area-inset-bottom,16px) + 16px)', boxShadow: '0 -4px 32px rgba(0,0,0,.18)' }}>
           <div style={{ width: 40, height: 4, borderRadius: 4, background: BORDER, margin: '0 auto 18px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            <Avatar initials={session.initials} size={48} />
+            <Avatar initials={session.initials || (session.username || '?')[0].toUpperCase()} size={48} />
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#1b2733' }}>{session.name}</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#1b2733' }}>{session.name || session.username}</div>
               <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>@{session.username}</div>
               <span style={{ fontSize: 11, fontWeight: 700, color: session.role === 'admin' ? GOLD_DARK : '#1a3c6e', background: session.role === 'admin' ? GOLD_BG : 'rgba(26,60,110,.1)', padding: '2px 8px', borderRadius: 6, marginTop: 4, display: 'inline-block' }}>{session.role === 'admin' ? 'Admin' : session.role === 'messe' ? 'Messe' : 'Mitarbeiter'}</span>
             </div>
