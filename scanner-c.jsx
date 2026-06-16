@@ -1,7 +1,5 @@
 // Atlantis Scanner — Direction C "Regal", theme-aware.
-// Tab bar (Scannen / Suche / Verlauf / Anleitung) + data-dense detail.
-// Jedes Produkt-Objekt ist eine einzelne Sheet-Zeile (kein Gruppieren mehr).
-// Geschwister-Artikel werden live über masterArt / slaveArts nachgeschlagen.
+// Tab bar (Scannen / Verlauf / Anleitung) + integrierte Suche + Vollbild-Scanner.
 /* global React, ATLANTIS, AUI, DetailView, InfoTab */
 
 const ACCENTS = {
@@ -55,12 +53,32 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   const padBotTabs = screen ? 'calc(env(safe-area-inset-bottom, 10px) + 12px)' : 22;
   const padBotBtn  = screen ? 'calc(env(safe-area-inset-bottom, 10px) + 14px)' : 30;
 
-  const [tab, setTab]   = useState('scan');
-  const [detail, setDetail] = useState(null);
+  // ── State ─────────────────────────────────────────────────────
+  const [tab, setTab]         = useState('scan');
+  const [detail, setDetail]   = useState(null);
   const [history, setHistory] = useState([]);
-  const [q, setQ] = useState('');
   const [standort, setStandort] = useState(STANDORTE[0]);
   const [showStandortPicker, setShowStandortPicker] = useState(false);
+
+  // Kamera
+  const [cam, setCam]           = useState('idle');
+  const [camOverlay, setCamOverlay] = useState(false);
+  const [camMsg, setCamMsg]     = useState('');
+  const [notFound, setNotFound] = useState(null);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [torchOn, setTorchOn]   = useState(false);
+  const [facingMode, setFacingMode] = useState('environment');
+  const [manual, setManual]     = useState('');
+  const camRef  = useRef(null);
+  const nfTimer = useRef(0);
+
+  // Suche (integriert in Scan-Tab)
+  const [searchActive, setSearchActive] = useState(false);
+  const [q, setQ]               = useState('');
+  const [filterBrand, setFilterBrand]   = useState(null);
+  const [filterCat,   setFilterCat]     = useState(null);
+  const [filterAktion, setFilterAktion] = useState(false);
+  const [visibleCap, setVisibleCap]     = useState(40);
   const [searchHistory, setSearchHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('atlantis_search_history') || '[]'); }
     catch { return []; }
@@ -115,40 +133,17 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
 
   // ── Kamera ────────────────────────────────────────────────────
   const CAM = typeof Html5Qrcode !== 'undefined' && typeof navigator !== 'undefined' && !!navigator.mediaDevices;
-  const camRef = useRef(null);
-  const [cam, setCam]     = useState('idle');
-  const [camMsg, setCamMsg] = useState('');
-  const [notFound, setNotFound] = useState(null);
-  const [manual, setManual]   = useState('');
-  const nfTimer = useRef(0);
-
-  const open = (p, scannedEan = null) => {
-    setDetail({ ...p, _scannedEan: scannedEan || p.ean });
-    setHistory((h) => [{ p, at: Date.now() }, ...h.filter((x) => x.p.ean !== p.ean)].slice(0, 20));
-  };
 
   const stopCamera = useCallback(() => {
     const inst = camRef.current; camRef.current = null;
     if (inst) { try { inst.stop().then(() => inst.clear()).catch(() => {}); } catch (e) {} }
     setCam((c) => (c === 'live' ? 'idle' : c));
+    setTorchOn(false);
   }, []);
 
-  const handleCode = (code) => {
-    const product = lookup(code);
-    if (product) {
-      setNotFound(null); stopCamera();
-      const scannedEan = /^\d{8,14}$/.test(String(code).trim()) ? String(code).trim() : product.ean;
-      open(product, scannedEan);
-    } else {
-      setNotFound(String(code).trim());
-      clearTimeout(nfTimer.current);
-      nfTimer.current = setTimeout(() => setNotFound(null), 3500);
-    }
-  };
-
-  const startCamera = () => {
+  const startCamera = useCallback((facing = 'environment') => {
     if (!CAM || camRef.current) return;
-    setNotFound(null); setCamMsg(''); setCam('live');
+    setNotFound(null); setScanSuccess(false); setCamMsg(''); setCam('live');
     const F2 = (typeof Html5QrcodeSupportedFormats !== 'undefined')
       ? [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
          Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
@@ -161,10 +156,12 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     try { inst = new Html5Qrcode('scanner-cam', { formatsToSupport: F2, verbose: false }); }
     catch (e) { setCam('error'); setCamMsg('Scanner konnte nicht gestartet werden.'); return; }
     camRef.current = inst;
+    // qrbox als Funktion: scannt 85% Breite × 50% Höhe (= deutlich mehr als vorher)
+    const qrboxFn = (w, h) => ({ width: Math.round(w * 0.85), height: Math.round(h * 0.50) });
     inst.start(
-      { facingMode: 'environment' },
-      { fps: 15, qrbox: { width: 250, height: 120 }, aspectRatio: 1.7778,
-        videoConstraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, focusMode: 'continuous' } },
+      { facingMode: facing },
+      { fps: 30, qrbox: qrboxFn,
+        videoConstraints: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' } },
       (text) => handleCode(text), () => {}
     ).catch((e) => {
       camRef.current = null; setCam('error');
@@ -172,12 +169,72 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
         ? 'Kein Kamerazugriff. Erlaube die Kamera in den Browser-Einstellungen (HTTPS erforderlich).'
         : 'Keine Kamera gefunden.');
     });
+  }, [CAM]); // eslint-disable-line
+
+  // Kamera starten: overlay zeigen, dann nach einem Tick camera starten
+  const handleStartCamera = () => {
+    if (!CAM) { setCam('error'); setCamMsg('Kein Kamerazugriff auf diesem Gerät.'); return; }
+    setCamOverlay(true);
   };
 
-  useEffect(() => { if (tab !== 'scan' || detail) stopCamera(); }, [tab, detail, stopCamera]);
+  const handleStopCamera = useCallback(() => {
+    stopCamera();
+    setCamOverlay(false);
+    setNotFound(null);
+    setScanSuccess(false);
+  }, [stopCamera]);
+
+  // Overlay sichtbar → Kamera starten (nach DOM-Update)
+  useEffect(() => {
+    if (!camOverlay) return;
+    const t = setTimeout(() => startCamera(facingMode), 80);
+    return () => clearTimeout(t);
+  }, [camOverlay]); // eslint-disable-line
+
+  const handleCode = (code) => {
+    const product = lookup(code);
+    if (product) {
+      setNotFound(null);
+      setScanSuccess(true);
+      const scannedEan = /^\d{8,14}$/.test(String(code).trim()) ? String(code).trim() : product.ean;
+      setTimeout(() => {
+        setScanSuccess(false);
+        handleStopCamera();
+        open(product, scannedEan);
+      }, 500);
+    } else {
+      setNotFound(String(code).trim());
+      clearTimeout(nfTimer.current);
+      nfTimer.current = setTimeout(() => setNotFound(null), 3500);
+    }
+  };
+
+  const toggleTorch = async () => {
+    if (!camRef.current) return;
+    const next = !torchOn;
+    setTorchOn(next);
+    try { await camRef.current.applyVideoConstraints({ advanced: [{ torch: next }] }); }
+    catch (_) { /* torch nicht unterstützt */ }
+  };
+
+  const flipCamera = () => {
+    const next = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(next);
+    stopCamera();
+    setTimeout(() => startCamera(next), 300);
+  };
+
+  useEffect(() => {
+    if (tab !== 'scan' || detail) { handleStopCamera(); setSearchActive(false); }
+  }, [tab, detail]); // eslint-disable-line
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   const F = (px) => Math.round(px * T.fs);
+
+  const open = (p, scannedEan = null) => {
+    setDetail({ ...p, _scannedEan: scannedEan || p.ean });
+    setHistory((h) => [{ p, at: Date.now() }, ...h.filter((x) => x.p.ean !== p.ean)].slice(0, 20));
+  };
 
   // ── Standort-Picker ───────────────────────────────────────────
   const StandortPicker = () => (
@@ -239,8 +296,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     <span style={{ width: size, height: size, borderRadius: size, background: T.stock[st], flexShrink: 0, display: 'inline-block' }} />;
 
   const ListRow = ({ p, time }) => {
-    const stock = getStock(p);
-    const st    = stockState(stock);
+    const stock  = getStock(p);
+    const st     = stockState(stock);
     const onSale = p.sale != null && p.sale > p.price;
     if (p.isMaster) return null;
     return (
@@ -268,94 +325,15 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
   // ── Navigation: Aktionen-Filter ───────────────────────────────
   const goToAktionen = () => {
     setFilterBrand(null); setFilterCat(null); setFilterAktion(true); setQ('');
-    setDetail(null);
-    setTimeout(() => setTab('search'), 50);
+    setDetail(null); setSearchActive(true);
+    setTimeout(() => setTab('scan'), 50);
   };
 
-  // ── Scan-Tab ──────────────────────────────────────────────────
+  // ── Suche-Logik ───────────────────────────────────────────────
   const aktionenCount = useMemo(() =>
     PRODUCTS.filter((p) => !p.isMaster && !!p.aktionsangebote?.[standort.key]).length,
   [PRODUCTS, standort]);
 
-  const onText = T.dark ? '#06131f' : '#fff';
-  const scanTab = (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
-      <Header title="Scannen" sub={meta || 'Artikel-Etikett erfassen'} />
-      {aktionenCount > 0 && (
-        <div onClick={goToAktionen}
-          style={{ margin: `${T.gap}px ${T.pad}px 0`, background: '#DAA520', borderRadius: T.radius,
-            padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: F(10), fontWeight: 700, color: '#5a3e00', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aktuelle Aktionsangebote</div>
-            <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00' }}>{aktionenCount} Artikel mit Sonderpreisen in {standort.label}</div>
-          </div>
-          <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: F(11), color: '#3d2b00', fontWeight: 700 }}>Alle</span>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-              <path d="M5 12h14M13 6l6 6-6 6" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        </div>
-      )}
-      <div style={{ flex: 1, overflow: 'auto', padding: T.pad }}>
-        <div style={{ background: T.card, borderRadius: 18, padding: 18, border: `1px solid ${T.border}`, boxShadow: T.tileShadow, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-          <div style={{ position: 'relative', width: '100%', maxWidth: 300, aspectRatio: '1 / 1', borderRadius: 18, background: '#06131f', border: `1px solid ${T.border}`, overflow: 'hidden' }}>
-            <div id="scanner-cam" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-            {cam !== 'live' && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.dark ? '#16283f' : '#eaf1f9' }}>
-                <div style={{ opacity: 0.55, display: 'flex' }}>{Icon.qr(standortAccent, 58)}</div>
-              </div>
-            )}
-            {[['top','left'],['top','right'],['bottom','left'],['bottom','right']].map(([v, h], i) => (
-              <div key={i} style={{ position: 'absolute', [v]: 16, [h]: 16, width: 28, height: 28, pointerEvents: 'none',
-                [`border${v[0].toUpperCase()+v.slice(1)}`]: `3px solid ${cam === 'live' ? '#fff' : standortAccent}`,
-                [`border${h[0].toUpperCase()+h.slice(1)}`]: `3px solid ${cam === 'live' ? '#fff' : standortAccent}`,
-                borderRadius: v === 'top' ? (h === 'left' ? '8px 0 0 0' : '0 8px 0 0') : (h === 'left' ? '0 0 0 8px' : '0 0 8px 0') }} />
-            ))}
-            {cam === 'live' && <div className="scanline" style={{ position: 'absolute', left: 16, right: 16, height: 3, borderRadius: 3, background: 'linear-gradient(90deg,transparent,#fff,transparent)', boxShadow: '0 0 12px #fff' }} />}
-          </div>
-
-          <div style={{ marginTop: 14, fontWeight: 700, color: T.ink, fontSize: F(16) }}>
-            {cam === 'live' ? 'Kamera aktiv' : cam === 'error' ? 'Kamera nicht verfügbar' : 'Bereit zum Scannen'}
-          </div>
-          <div style={{ marginTop: 3, fontSize: F(13), color: cam === 'error' ? T.stock.out : T.mute, textAlign: 'center', lineHeight: 1.4 }}>
-            {cam === 'live' ? 'Barcode / EAN in den Rahmen halten' : cam === 'error' ? camMsg : 'Kamera auf Barcode oder QR richten'}
-          </div>
-
-          {notFound && <div style={{ marginTop: 12, width: '100%', boxSizing: 'border-box', background: T.chipLow, color: T.stock.out, border: `1px solid ${T.stock.out}55`, borderRadius: 10, padding: '9px 12px', fontSize: F(13), fontWeight: 600, textAlign: 'center' }}>Kein Artikel zu „{notFound}" (EAN/Art.-Nr.)</div>}
-
-          {cam === 'live'
-            ? <button onClick={stopCamera} style={{ marginTop: 14, width: '100%', height: 52, borderRadius: 14, border: `1.5px solid ${T.border}`, cursor: 'pointer', background: 'transparent', color: T.ink, fontSize: F(16), fontWeight: 700, fontFamily: 'inherit' }}>Stopp</button>
-            : <button onClick={startCamera} style={{ marginTop: 14, width: '100%', height: 52, borderRadius: 14, border: 'none', cursor: 'pointer', background: standortAccent, color: onText, fontSize: F(16), fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>{Icon.scan(onText, 20)} Kamera starten</button>}
-
-          <div style={{ marginTop: 10, width: '100%', display: 'flex', gap: 8 }}>
-            <input value={manual} onChange={(e) => setManual(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && manual.trim()) { handleCode(manual.trim()); setManual(''); } }}
-              placeholder="EAN oder Art.-Nr. eingeben"
-              style={{ flex: 1, minWidth: 0, height: 44, borderRadius: 11, border: `1px solid ${T.border}`, background: T.field, color: T.ink, padding: '0 12px', fontSize: F(15), fontFamily: 'inherit', outline: 'none' }} />
-            <button onClick={() => { if (manual.trim()) { handleCode(manual.trim()); setManual(''); } }}
-              style={{ flexShrink: 0, height: 44, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', background: `${standortAccent}18`, color: standortAccent, fontSize: F(15), fontWeight: 700, fontFamily: 'inherit' }}>Suchen</button>
-          </div>
-        </div>
-
-        {history.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: F(12), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 700 }}>Zuletzt gescannt</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
-              {history.slice(0, 3).map((h) => <ListRow key={h.p.ean || h.p.id} p={h.p} />)}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // ── Suche-Tab ─────────────────────────────────────────────────
   const q2 = q.trim().toLowerCase();
   const tokenMatch = (s, toks) => toks.every((t) => s.includes(t));
 
@@ -371,24 +349,18 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     { value: 'Scuba Force',                        label: 'Scuba Force' },
     { value: 'Bare Sports Holding Malta',          label: 'Bare' },
   ];
-
   const TOP_CATS = [
-    { value: 'Neoprenanzüge',                    label: 'Neoprenanzüge' },
-    { value: 'Neopren',                          label: 'Neopren' },
-    { value: 'Trockentauchen',                   label: 'Trockentauchen' },
-    { value: 'Zubehör',                          label: 'Zubehör' },
-    { value: 'Geräteflossen',                    label: 'Geräteflossen' },
-    { value: 'Tarierjackets',                    label: 'Tarierjackets' },
-    { value: 'Masken',                           label: 'Masken' },
-    { value: 'Masken mit opt. Gläsern',          label: 'Opt. Masken' },
-    { value: 'UV-Schutz',                        label: 'UV-Schutz' },
-    { value: 'Trilaminat Trockentauchanzüge',    label: 'Trilaminat' },
+    { value: 'Neoprenanzüge',                 label: 'Neoprenanzüge' },
+    { value: 'Neopren',                       label: 'Neopren' },
+    { value: 'Trockentauchen',                label: 'Trockentauchen' },
+    { value: 'Zubehör',                       label: 'Zubehör' },
+    { value: 'Geräteflossen',                 label: 'Geräteflossen' },
+    { value: 'Tarierjackets',                 label: 'Tarierjackets' },
+    { value: 'Masken',                        label: 'Masken' },
+    { value: 'Masken mit opt. Gläsern',       label: 'Opt. Masken' },
+    { value: 'UV-Schutz',                     label: 'UV-Schutz' },
+    { value: 'Trilaminat Trockentauchanzüge', label: 'Trilaminat' },
   ];
-
-  const [filterBrand,  setFilterBrand]  = useState(null);
-  const [filterCat,    setFilterCat]    = useState(null);
-  const [filterAktion, setFilterAktion] = useState(false);
-  const [visibleCap,   setVisibleCap]   = useState(40);
 
   useEffect(() => {
     if (q.trim().length < 2) return;
@@ -409,19 +381,24 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     return PRODUCTS.filter((p) => {
       if (p.isMaster) return false;
       const s = p._s || (p.name + ' ' + p.brand + ' ' + p.art + ' ' + p.cat + ' ' + p.ean).toLowerCase();
-      const textOk   = toks.length === 0 || tokenMatch(s, toks);
-      const brandOk  = !filterBrand  || p.brand === filterBrand;
-      const catOk    = !filterCat    || p.cat   === filterCat;
-      const aktionOk = !filterAktion || !!p.aktionsangebote?.[standort.key];
-      return textOk && brandOk && catOk && aktionOk;
+      return (toks.length === 0 || tokenMatch(s, toks))
+        && (!filterBrand  || p.brand === filterBrand)
+        && (!filterCat    || p.cat   === filterCat)
+        && (!filterAktion || !!p.aktionsangebote?.[standort.key]);
     });
   }, [PRODUCTS, toks, filterBrand, filterCat, filterAktion]);
 
-  const shown = matches.slice(0, visibleCap);
+  const shown        = matches.slice(0, visibleCap);
   const activeFilters = (filterBrand ? 1 : 0) + (filterCat ? 1 : 0) + (filterAktion ? 1 : 0);
+  const totalActive  = useMemo(() => PRODUCTS.filter((p) => !p.isMaster).length, [PRODUCTS]);
 
   const activeBrandLabel = filterBrand ? (TOP_BRANDS.find((b) => b.value === filterBrand)?.label || filterBrand) : null;
   const activeCatLabel   = filterCat   ? (TOP_CATS.find((c) => c.value === filterCat)?.label   || filterCat)   : null;
+
+  const closeSearch = () => {
+    setSearchActive(false);
+    setQ(''); setFilterBrand(null); setFilterCat(null); setFilterAktion(false);
+  };
 
   const Chip = ({ label, active, onPress }) => (
     <button onClick={onPress} style={{ flexShrink: 0, height: 30, padding: '0 12px', borderRadius: 20,
@@ -432,142 +409,261 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     </button>
   );
 
-  const showAktionSuggestion = q.trim().length >= 2
-    && 'aktionsangebote'.startsWith(q.trim().toLowerCase())
-    && !filterAktion;
-
-  const totalActive = useMemo(() =>
-    PRODUCTS.filter((p) => !p.isMaster).length,
-  [PRODUCTS]);
-
-  const searchTab = (
+  // ── Scan-Tab ──────────────────────────────────────────────────
+  const scanTab = (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
-      <Header title="Suche" sub={`${totalActive.toLocaleString('de-DE')} Artikel im Sortiment`} />
-      <div style={{ padding: `12px ${T.pad}px 0`, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.field, borderRadius: 12,
-          padding: filterAktion ? '8px 14px' : '10px 14px',
-          border: filterAktion ? `1.5px solid #DAA520` : `1px solid ${T.border}`,
-          boxShadow: T.tileShadow }}>
-          {Icon.search(T.mute, 18)}
-          {filterAktion && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
-              color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13),
-              fontWeight: 700, flexShrink: 0 }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
-              </svg>
-              Aktionen
-              <span onClick={() => setFilterAktion(false)}
-                style={{ fontSize: 16, lineHeight: 1, opacity: 0.6, marginLeft: 1, cursor: 'pointer' }}>×</span>
-            </span>
-          )}
-          <input value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder={filterAktion ? 'Suche verfeinern…' : 'Name, Marke, Art.-Nr. oder EAN'}
-            style={{ border: 'none', outline: 'none', flex: 1, fontSize: F(15), color: T.ink, background: 'transparent', fontFamily: 'inherit' }} />
-          {(q || activeFilters > 0) && (
-            <button onClick={() => { setQ(''); setFilterBrand(null); setFilterCat(null); setFilterAktion(false); }}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-              {Icon.close(T.mute, 18)}
-            </button>
-          )}
+      <Header title="Scannen" sub={meta || 'Artikel-Etikett erfassen'} />
+
+      {aktionenCount > 0 && (
+        <div onClick={goToAktionen}
+          style={{ margin: `${T.gap}px ${T.pad}px 0`, background: '#DAA520', borderRadius: T.radius,
+            padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: F(10), fontWeight: 700, color: '#5a3e00', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aktuelle Aktionsangebote</div>
+            <div style={{ fontSize: F(13), fontWeight: 600, color: '#3d2b00' }}>{aktionenCount} Artikel mit Sonderpreisen in {standort.label}</div>
+          </div>
+          <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: F(11), color: '#3d2b00', fontWeight: 700 }}>Alle</span>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
         </div>
-        {showAktionSuggestion && (
-          <div style={{ position: 'absolute', left: T.pad, right: T.pad, top: '100%', zIndex: 50,
-            background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', marginTop: 4 }}>
-            <button
-              onClick={() => { setFilterAktion(true); setQ(''); }}
-              style={{ width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10,
-                background: T.dark ? 'rgba(218,165,32,0.12)' : '#DAA52012' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
-                color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13), fontWeight: 700, flexShrink: 0 }}>
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/>
-                </svg>
-                Aktionen
-              </span>
-              <span style={{ fontSize: F(13), color: T.mute }}>{aktionenCount} Aktionsartikel anzeigen</span>
-            </button>
-            <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, borderTop: `1px solid ${T.border}` }}>
-              {Icon.search(T.mute, 14)}
-              <span style={{ fontSize: F(13), color: T.mute }}>nach „{q}" suchen…</span>
+      )}
+
+      <div style={{ flex: 1, overflow: 'auto', padding: T.pad, display: 'flex', flexDirection: 'column', gap: T.gap }}>
+
+        {/* Kamera-Kachel: der dunkle Bereich IST der Button */}
+        <div style={{ background: T.card, borderRadius: 18, overflow: 'hidden', border: `1px solid ${T.border}`, boxShadow: T.tileShadow }}>
+
+          {/* Klickbares Kamera-Vorschau-Feld */}
+          <button onClick={handleStartCamera}
+            style={{ display: 'block', width: '100%', border: 'none', cursor: 'pointer', padding: 0, background: 'none', fontFamily: 'inherit' }}>
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9',
+              background: T.dark ? '#16283f' : '#0d1f36',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              {/* Eck-Markierungen */}
+              {[['top','left'],['top','right'],['bottom','left'],['bottom','right']].map(([v, h], i) => (
+                <div key={i} style={{ position: 'absolute', [v]: 14, [h]: 14, width: 22, height: 22, pointerEvents: 'none',
+                  [`border${v[0].toUpperCase()+v.slice(1)}`]: `2.5px solid ${standortAccent}`,
+                  [`border${h[0].toUpperCase()+h.slice(1)}`]: `2.5px solid ${standortAccent}`,
+                  borderRadius: v === 'top' ? (h === 'left' ? '6px 0 0 0' : '0 6px 0 0') : (h === 'left' ? '0 0 0 6px' : '0 0 6px 0') }} />
+              ))}
+              {/* Icon + Label */}
+              <div style={{ opacity: 0.7 }}>{Icon.scan(standortAccent, 38)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: `${standortAccent}22`, border: `1px solid ${standortAccent}55`, borderRadius: 20, padding: '6px 16px' }}>
+                <span style={{ fontSize: F(13), fontWeight: 700, color: standortAccent }}>Antippen zum Scannen</span>
+              </div>
+              {cam === 'error' && (
+                <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, background: 'rgba(200,16,46,0.85)', borderRadius: 8, padding: '6px 10px', fontSize: F(11), color: '#fff', textAlign: 'center', fontWeight: 600 }}>
+                  {camMsg || 'Kein Kamerazugriff'}
+                </div>
+              )}
+            </div>
+          </button>
+
+          {/* Suchfeld direkt darunter — optisch im gleichen Block */}
+          <button onClick={() => setSearchActive(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', border: 'none', cursor: 'pointer',
+              background: 'none', fontFamily: 'inherit', padding: `12px ${T.pad}px`,
+              borderTop: `1px solid ${T.border}` }}>
+            {Icon.search(T.mute, 18)}
+            <span style={{ fontSize: F(15), color: T.mute, flex: 1, textAlign: 'left' }}>Name, Marke, EAN oder Art.-Nr.</span>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={{ opacity: 0.4 }}>
+              <path d="M9 18l6-6-6-6" stroke={T.mute} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Zuletzt gescannt */}
+        {history.length > 0 && (
+          <div>
+            <div style={{ fontSize: F(12), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, fontWeight: 700 }}>Zuletzt gescannt</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
+              {history.slice(0, 3).map((h) => <ListRow key={h.p.ean || h.p.id} p={h.p} />)}
             </div>
           </div>
         )}
       </div>
-      <div style={{ padding: `8px ${T.pad}px 0` }}>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          <Chip label="Alle Marken" active={!filterBrand} onPress={() => setFilterBrand(null)} />
-          {TOP_BRANDS.map((b) => (
-            <Chip key={b.value} label={b.label} active={filterBrand === b.value}
-              onPress={() => setFilterBrand(filterBrand === b.value ? null : b.value)} />
-          ))}
-          {filterBrand && !TOP_BRANDS.find((b) => b.value === filterBrand) && (
-            <Chip label={activeBrandLabel} active={true} onPress={() => setFilterBrand(null)} />
-          )}
+
+      {/* ── Vollbild-Kamera-Overlay ── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 15,
+        background: '#000',
+        display: camOverlay ? 'flex' : 'none',
+        flexDirection: 'column' }}>
+
+        {/* Echter Kamera-Stream */}
+        <div id="scanner-cam" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+
+        {/* Dunkle Ränder außerhalb des Scan-Bereichs werden von html5-qrcode gerendert */}
+
+        {/* Oben: Torch + Flip */}
+        <div style={{ position: 'relative', zIndex: 2, paddingTop: screen ? 'calc(env(safe-area-inset-top,12px) + 12px)' : 52, paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={toggleTorch}
+            style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              background: torchOn ? 'rgba(255,220,0,0.35)' : 'rgba(255,255,255,0.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <path d="M9 2l-1 7H4l8 13 2-8h4L9 2z" stroke={torchOn ? '#ffe066' : '#fff'} fill={torchOn ? '#ffe066' : 'none'} strokeWidth="2" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: F(12), fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Scannen</span>
+          <button onClick={flipCamera}
+            style={{ width: 44, height: 44, borderRadius: 22, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <path d="M20 7h-3.17L15 5H9L7.17 7H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#fff" strokeWidth="2" strokeLinejoin="round"/>
+              <circle cx="12" cy="14" r="4" stroke="#fff" strokeWidth="2"/>
+              <path d="M10 11a2.5 2.5 0 015 0" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
-      </div>
-      <div style={{ padding: `4px ${T.pad}px 6px` }}>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          <Chip label="Alle Kategorien" active={!filterCat} onPress={() => setFilterCat(null)} />
-          {TOP_CATS.map((c) => (
-            <Chip key={c.value} label={c.label} active={filterCat === c.value}
-              onPress={() => setFilterCat(filterCat === c.value ? null : c.value)} />
-          ))}
-          {filterCat && !TOP_CATS.find((c) => c.value === filterCat) && (
-            <Chip label={activeCatLabel} active={true} onPress={() => setFilterCat(null)} />
-          )}
-        </div>
-      </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: `0 ${T.pad}px ${T.pad}px`, display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
-        {toks.length === 0 && !filterBrand && !filterCat && !filterAktion ? (
-          searchHistory.length > 0 ? (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: F(12), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{Icon.history(T.mute, 14)} Zuletzt gesucht</span>
-                <button onClick={() => { setSearchHistory([]); try { localStorage.removeItem('atlantis_search_history'); } catch {} }}
-                  style={{ border: 'none', background: 'none', color: T.mute, fontSize: F(12), cursor: 'pointer', fontFamily: 'inherit' }}>Löschen</button>
-              </div>
-              {searchHistory.map((s) => (
-                <button key={s} onClick={() => setQ(s)}
-                  style={{ width: '100%', textAlign: 'left', border: `1px solid ${T.border}`, cursor: 'pointer',
-                    background: T.card, borderRadius: T.radius, padding: '10px 14px',
-                    marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10,
-                    boxShadow: T.tileShadow, fontFamily: 'inherit' }}>
-                  {Icon.history(T.mute, 16)}
-                  <span style={{ fontSize: F(14), color: T.ink, flex: 1 }}>{s}</span>
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <path d="M7 17L17 7M7 7h10v10" stroke={T.mute} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              ))}
+
+        {/* Erfolgs-Flash */}
+        {scanSuccess && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3, background: 'rgba(0,60,20,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, background: 'rgba(55,210,126,0.2)', border: '2px solid #37d27e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width={32} height={32} viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#37d27e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', color: T.mute, marginTop: 40, fontSize: F(14), lineHeight: 1.5 }}>Mindestens 2 Zeichen eingeben<br />oder Marke / Kategorie antippen</div>
-          )
-        ) : shown.length ? (
-          <>
-            <div style={{ fontSize: F(12), color: T.mute, paddingTop: 8 }}>{matches.length} Treffer{activeFilters > 0 ? ` · ${activeFilters} Filter aktiv` : ''}</div>
-            {shown.map((p, i) => <ListRow key={(p.ean || p.id) + '_' + i} p={p} />)}
-            {matches.length > visibleCap && (
-              <button onClick={() => setVisibleCap((c) => c + 40)}
-                style={{ width: '100%', padding: '13px', background: T.card,
-                  border: `1px solid ${T.border}`, borderRadius: T.radius,
-                  color: T.ink, fontSize: F(14), fontWeight: 600, cursor: 'pointer',
-                  fontFamily: 'inherit', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', gap: 8, boxShadow: T.tileShadow }}>
-                {Icon.chevron(standortAccent, 18)}
-                Mehr laden
-                <span style={{ color: T.mute, fontSize: F(12) }}>(+{(matches.length - visibleCap).toLocaleString('de-DE')} weitere)</span>
+            <span style={{ color: '#37d27e', fontSize: F(16), fontWeight: 700 }}>Gefunden!</span>
+          </div>
+        )}
+
+        {/* Nicht-gefunden Toast */}
+        {notFound && !scanSuccess && (
+          <div style={{ position: 'absolute', bottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 90px)' : 98, left: 20, right: 20, zIndex: 3,
+            background: 'rgba(200,16,46,0.9)', backdropFilter: 'blur(8px)', borderRadius: 12,
+            padding: '10px 14px', color: '#fff', fontSize: F(13), fontWeight: 600, textAlign: 'center' }}>
+            Kein Artikel zu „{notFound}" gefunden
+          </div>
+        )}
+
+        {/* Kamera-Fehler */}
+        {cam === 'error' && (
+          <div style={{ position: 'absolute', bottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 90px)' : 98, left: 20, right: 20, zIndex: 3,
+            background: 'rgba(200,16,46,0.85)', borderRadius: 12, padding: '10px 14px',
+            color: '#fff', fontSize: F(13), fontWeight: 600, textAlign: 'center' }}>
+            {camMsg || 'Kein Kamerazugriff'}
+          </div>
+        )}
+
+        {/* Unten: manuelle Eingabe + Abbrechen */}
+        <div style={{ position: 'relative', zIndex: 2, marginTop: 'auto',
+          padding: `12px 20px`, paddingBottom: screen ? 'calc(env(safe-area-inset-bottom,10px) + 14px)' : 28,
+          display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '0 12px' }}>
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M11 17h2M3 8h18M5 12h6M5 16h3" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round"/></svg>
+            <input value={manual} onChange={(e) => setManual(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && manual.trim()) { handleCode(manual.trim()); setManual(''); } }}
+              placeholder="Art.-Nr. oder EAN manuell"
+              style={{ flex: 1, height: 44, border: 'none', outline: 'none', background: 'transparent', color: '#fff', fontSize: F(14), fontFamily: 'inherit' }} />
+            {manual.trim() && (
+              <button onClick={() => { handleCode(manual.trim()); setManual(''); }}
+                style={{ border: 'none', background: `${standortAccent}cc`, borderRadius: 8, padding: '4px 10px', color: '#fff', fontSize: F(12), fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                Suchen
               </button>
             )}
-          </>
-        ) : (
-          <div style={{ textAlign: 'center', color: T.mute, marginTop: 50, fontSize: F(14) }}>Keine Treffer{q ? ` für „${q}"` : ''}{activeFilters > 0 ? ' mit diesen Filtern' : ''}</div>
-        )}
+          </div>
+          <button onClick={handleStopCamera}
+            style={{ flexShrink: 0, height: 44, padding: '0 16px', borderRadius: 12, border: '1.5px solid rgba(255,255,255,0.3)',
+              background: 'rgba(255,255,255,0.10)', color: '#fff', fontSize: F(14), fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Abbrechen
+          </button>
+        </div>
+      </div>
+
+      {/* ── Suche-Overlay (über Scan-Tab) ── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 12,
+        background: T.bg,
+        transform: searchActive ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.28s cubic-bezier(.22,1,.36,1)',
+        display: 'flex', flexDirection: 'column' }}>
+
+        {/* Such-Header */}
+        <div style={{ background: T.headerBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          paddingTop: padTopHdr, paddingLeft: T.pad, paddingRight: T.pad, paddingBottom: 10,
+          borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+            background: T.field, borderRadius: 12, padding: filterAktion ? '8px 14px' : '10px 14px',
+            border: filterAktion ? `1.5px solid #DAA520` : `1.5px solid ${standortAccent}`,
+            boxShadow: `0 0 0 3px ${standortAccent}18` }}>
+            {Icon.search(standortAccent, 18)}
+            {filterAktion && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#DAA520',
+                color: '#3d2b00', borderRadius: 6, padding: '3px 8px 3px 7px', fontSize: F(13), fontWeight: 700, flexShrink: 0 }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#3d2b00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke="#3d2b00" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                Aktionen
+                <span onClick={() => setFilterAktion(false)} style={{ fontSize: 16, lineHeight: 1, opacity: 0.6, marginLeft: 1, cursor: 'pointer' }}>×</span>
+              </span>
+            )}
+            <input autoFocus={searchActive} value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder={filterAktion ? 'Suche verfeinern…' : 'Name, Marke, EAN oder Art.-Nr.'}
+              style={{ border: 'none', outline: 'none', flex: 1, fontSize: F(15), color: T.ink, background: 'transparent', fontFamily: 'inherit' }} />
+            {(q || activeFilters > 0)
+              ? <button onClick={() => { setQ(''); setFilterBrand(null); setFilterCat(null); setFilterAktion(false); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>{Icon.close(T.mute, 18)}</button>
+              : null}
+            <button onClick={closeSearch} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 4px', fontSize: F(14), fontWeight: 600, color: standortAccent, fontFamily: 'inherit', flexShrink: 0 }}>Abbrechen</button>
+          </div>
+        </div>
+
+        {/* Chips */}
+        <div style={{ padding: `8px ${T.pad}px 0`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+            <Chip label="Alle Marken" active={!filterBrand} onPress={() => setFilterBrand(null)} />
+            {TOP_BRANDS.map((b) => <Chip key={b.value} label={b.label} active={filterBrand === b.value} onPress={() => setFilterBrand(filterBrand === b.value ? null : b.value)} />)}
+            {filterBrand && !TOP_BRANDS.find((b) => b.value === filterBrand) && <Chip label={activeBrandLabel} active={true} onPress={() => setFilterBrand(null)} />}
+          </div>
+        </div>
+        <div style={{ padding: `4px ${T.pad}px 6px`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+            <Chip label="Alle Kategorien" active={!filterCat} onPress={() => setFilterCat(null)} />
+            {TOP_CATS.map((c) => <Chip key={c.value} label={c.label} active={filterCat === c.value} onPress={() => setFilterCat(filterCat === c.value ? null : c.value)} />)}
+            {filterCat && !TOP_CATS.find((c) => c.value === filterCat) && <Chip label={activeCatLabel} active={true} onPress={() => setFilterCat(null)} />}
+          </div>
+        </div>
+
+        {/* Ergebnisse */}
+        <div style={{ flex: 1, overflow: 'auto', padding: `0 ${T.pad}px ${T.pad}px`, display: 'flex', flexDirection: 'column', gap: T.gap - 2 }}>
+          {toks.length === 0 && !filterBrand && !filterCat && !filterAktion ? (
+            searchHistory.length > 0 ? (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: F(12), color: T.mute, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{Icon.history(T.mute, 14)} Zuletzt gesucht</span>
+                  <button onClick={() => { setSearchHistory([]); try { localStorage.removeItem('atlantis_search_history'); } catch {} }} style={{ border: 'none', background: 'none', color: T.mute, fontSize: F(12), cursor: 'pointer', fontFamily: 'inherit' }}>Löschen</button>
+                </div>
+                {searchHistory.map((s) => (
+                  <button key={s} onClick={() => setQ(s)}
+                    style={{ width: '100%', textAlign: 'left', border: `1px solid ${T.border}`, cursor: 'pointer',
+                      background: T.card, borderRadius: T.radius, padding: '10px 14px', marginBottom: 6,
+                      display: 'flex', alignItems: 'center', gap: 10, boxShadow: T.tileShadow, fontFamily: 'inherit' }}>
+                    {Icon.history(T.mute, 16)}
+                    <span style={{ fontSize: F(14), color: T.ink, flex: 1 }}>{s}</span>
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M7 7h10v10" stroke={T.mute} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: T.mute, marginTop: 40, fontSize: F(14), lineHeight: 1.5 }}>Mindestens 2 Zeichen eingeben<br />oder Marke / Kategorie antippen</div>
+            )
+          ) : shown.length ? (
+            <>
+              <div style={{ fontSize: F(12), color: T.mute, paddingTop: 8 }}>{matches.length} Treffer{activeFilters > 0 ? ` · ${activeFilters} Filter aktiv` : ''}</div>
+              {shown.map((p, i) => <ListRow key={(p.ean || p.id) + '_' + i} p={p} />)}
+              {matches.length > visibleCap && (
+                <button onClick={() => setVisibleCap((c) => c + 40)}
+                  style={{ width: '100%', padding: '13px', background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, color: T.ink, fontSize: F(14), fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: T.tileShadow }}>
+                  {Icon.chevron(standortAccent, 18)} Mehr laden
+                  <span style={{ color: T.mute, fontSize: F(12) }}>(+{(matches.length - visibleCap).toLocaleString('de-DE')} weitere)</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', color: T.mute, marginTop: 50, fontSize: F(14) }}>Keine Treffer{q ? ` für „${q}"` : ''}{activeFilters > 0 ? ' mit diesen Filtern' : ''}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -589,7 +685,7 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     </div>
   );
 
-  // ── Tab-Bar ───────────────────────────────────────────────────
+  // ── Tab-Bar (3 Tabs) ──────────────────────────────────────────
   const TabBtn = ({ id, label, icon }) => {
     const active = tab === id;
     return (
@@ -600,24 +696,18 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
     );
   };
 
-  const AccentStrip = () => (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: standortAccent, borderRadius: '3px 3px 0 0' }} />
-  );
-
   return (
     <div style={{ height: '100%', position: 'relative', background: T.bg, color: T.ink }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflow: 'hidden', paddingBottom: 64 }}>
           {tab === 'scan'    && scanTab}
-          {tab === 'search'  && searchTab}
           {tab === 'history' && historyTab}
           {tab === 'info'    && <InfoTab T={T} F={F} standort={standort} standortAccent={standortAccent} STANDORTE={STANDORTE} Header={Header} />}
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 9, background: T.headerBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}`, paddingBottom: padBotTabs, display: 'flex' }}>
-        <AccentStrip />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: standortAccent, borderRadius: '3px 3px 0 0' }} />
         <TabBtn id="scan"    label="Scannen"   icon={Icon.scan} />
-        <TabBtn id="search"  label="Suche"     icon={Icon.search} />
         <TabBtn id="history" label="Verlauf"   icon={Icon.history} />
         <TabBtn id="info"    label="Anleitung" icon={(c, s) => (
           <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
@@ -626,7 +716,8 @@ function ScannerC({ tw, products, fit = 'device', meta }) {
           </svg>
         )} />
       </div>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 20, transform: detail ? 'translateX(0)' : 'translateX(100%)', transition: 'transform .3s cubic-bezier(.22,1,.36,1)', pointerEvents: detail ? 'auto' : 'none' }}>
+      {/* Detail-View Overlay */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 30, transform: detail ? 'translateX(0)' : 'translateX(100%)', transition: 'transform .3s cubic-bezier(.22,1,.36,1)', pointerEvents: detail ? 'auto' : 'none' }}>
         {detail && (
           <DetailView
             detail={detail}
